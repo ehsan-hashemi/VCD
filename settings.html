@@ -1,0 +1,89 @@
+<!-- File: settings.html -->
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VSD - تنظیمات</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+  <main class="settings-page">
+    <!-- کارت پروفایل -->
+    <section class="settings-card">
+      <div id="profile-section">
+        <div id="avatar" title="تغییر عکس پروفایل">
+          <i class="material-icons">person</i>
+        </div>
+        <div id="user-area">
+          <!-- هنگام ورود: نام + شماره + دکمه‌ها -->
+          <button id="login-btn">ورود / ثبت‌نام</button>
+        </div>
+      </div>
+      <!-- کنترل‌های اکانت -->
+      <div id="account-actions" style="margin-top:12px; display:none;">
+        <button id="edit-profile" class="input" style="background:var(--accent); color:#fff; border:0; cursor:pointer;">ویرایش پروفایل</button>
+        <button id="logout" class="input" style="margin-top:8px; background:#263238; color:#fff; border:0; cursor:pointer;">خروج از حساب</button>
+      </div>
+    </section>
+
+    <!-- فرم ورود/ثبت‌نام (درون تنظیمات، بدون پاپ‌آپ) -->
+    <section id="auth-card" class="settings-card hidden" aria-hidden="true">
+      <h3 style="margin:0 0 10px; font-size:16px;">ورود / ثبت‌نام</h3>
+      <form id="auth-form">
+        <label for="phone" style="display:block; margin-bottom:6px; color:#dfe3e6;">شماره تلفن</label>
+        <input id="phone" name="phone" class="input" inputmode="numeric" autocomplete="tel"
+               placeholder="مثلاً 0912xxxxxxx" required pattern="^0?9[0-9]{9}$" />
+
+        <label for="name" style="display:block; margin:12px 0 6px; color:#dfe3e6;">نام و نام‌خانوادگی</label>
+        <input id="name" name="name" class="input" placeholder="نام شما" required />
+
+        <label for="avatar-input" style="display:block; margin:12px 0 6px; color:#dfe3e6;">عکس پروفایل (اختیاری)</label>
+        <input id="avatar-input" type="file" accept="image/*" class="input" />
+
+        <div class="center" style="gap:8px; margin-top:12px;">
+          <button type="submit" class="input" style="background:var(--accent); color:#fff; border:0; cursor:pointer;">ثبت</button>
+          <button type="button" id="cancel-auth" class="input" style="background:#0f0f0f; color:#e5e7eb; border:1px solid rgba(255,255,255,.14); cursor:pointer;">انصراف</button>
+        </div>
+        <p id="auth-error" style="color:#ffcdd2; font-size:13px; margin:8px 2px 0; display:none;"></p>
+      </form>
+    </section>
+
+    <!-- آمار -->
+    <section class="settings-card">
+      <div class="stats">
+        <p>ویدیوهای ذخیره‌شده<span id="saved-count">0</span></p>
+        <p>دیده‌شده امروز<span id="daily-count">0</span></p>
+        <p>دیده‌شده این ماه<span id="monthly-count">0</span></p>
+      </div>
+    </section>
+
+    <!-- بخشی از ویدیوهای ذخیره‌شده + لینک مشاهده همه -->
+    <h3 class="saved-title" style="display:flex; align-items:center; justify-content:space-between;">
+      <span>ویدیوهای ذخیره‌شده اخیر</span>
+      <a href="saved.html" style="font-size:13px;">مشاهده همه</a>
+    </h3>
+    <section id="saved-preview" class="saved-grid"></section>
+    <p id="saved-empty" class="max-w-mobile" style="margin:8px auto 0; color:#90a4ae; text-align:center; display:none;">
+      هنوز ویدیویی ذخیره نکرده‌اید.
+    </p>
+  </main>
+
+  <nav class="bottom-nav">
+    <button id="nav-home" title="خانه"><span class="material-icons">home</span></button>
+    <button id="nav-search" title="جستجو"><span class="material-icons">search</span></button>
+    <button id="nav-add" title="ارسال ویدیو"><span class="material-icons">add_circle</span></button>
+    <button disabled title="تنظیمات"><span class="material-icons">settings</span></button>
+  </nav>
+
+  <footer>
+    &copy; <span id="year"></span> VSD — All rights reserved.
+    <a href="https://ehsan-hashemi.ir/">Ehsan Group</a>
+  </footer>
+
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

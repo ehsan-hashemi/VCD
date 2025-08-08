@@ -1,0 +1,415 @@
+/* =======================================================
+   style.css — Global styles for VSD (mobile-first, dark)
+   ======================================================= */
+
+/*--------------------------------------
+  Variables, font, base, reset
+---------------------------------------*/
+:root{
+  /* Colors */
+  --bg:#000;
+  --fg:#fff;
+  --surface:#121212;
+  --muted:#1a1a1a;
+  --accent:#2196f3;
+  --accent-2:#64b5f6;
+  --error:#f44336;
+  --success:#4caf50;
+  --text-sec:#bdbdbd;
+
+  /* Spacing */
+  --sp-2:2px; --sp-4:4px; --sp-6:6px; --sp-8:8px; --sp-10:10px; --sp-12:12px; --sp-14:14px; --sp-16:16px; --sp-20:20px; --sp-24:24px; --sp-28:28px; --sp-32:32px; --sp-40:40px; --sp-56:56px;
+
+  /* Radius */
+  --r-4:4px; --r-6:6px; --r-8:8px; --r-10:10px; --r-12:12px; --r-16:16px; --r-24:24px;
+
+  /* Shadows */
+  --sh-soft:0 6px 18px rgba(0,0,0,.22);
+  --sh-elev:0 10px 24px rgba(0,0,0,.28);
+
+  /* Typography */
+  --font:'Vazir',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  --fs-12:12px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px;
+}
+
+@font-face{
+  font-family:'Vazir';
+  src:url('./Vazir-Regular.ttf') format('truetype');
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;width:100%}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--font);
+  direction:rtl;
+}
+
+/* Material icons sizing (inherit color) */
+.material-icons{font-size:24px; line-height:1; vertical-align:middle}
+
+/* Links */
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Utility */
+.hidden{display:none!important}
+.center{display:flex;align-items:center;justify-content:center}
+.max-w-mobile{max-width:420px;margin-inline:auto}
+
+/*--------------------------------------
+  Offline banner
+---------------------------------------*/
+#offline-banner{
+  position:fixed; top:0; inset-inline:0;
+  background:#b71c1c; color:#fff;
+  padding:var(--sp-8);
+  text-align:center; z-index:1000;
+  box-shadow:var(--sh-soft);
+}
+
+/*--------------------------------------
+  Bottom navigation (global)
+---------------------------------------*/
+.bottom-nav{
+  position:fixed; bottom:0; inset-inline:0;
+  height:var(--sp-56);
+  background:var(--surface);
+  display:flex; align-items:center; justify-content:space-around;
+  border-top:1px solid rgba(255,255,255,.08);
+  z-index:950;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.bottom-nav button{
+  background:transparent; border:0; color:#e0e0e0; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:0; /* icon only */
+  width:56px; height:56px;
+}
+.bottom-nav button:focus-visible{outline:2px solid var(--accent)}
+.bottom-nav button.active .material-icons,
+.bottom-nav button:hover .material-icons{color:var(--accent)}
+.bottom-nav .material-icons{font-size:28px}
+
+/*--------------------------------------
+  Home / Feed — 9:16 stage
+  - Mobile-first: full viewport
+  - Desktop: keep 9:16 centered, black gutters
+---------------------------------------*/
+
+/* Stage centers a strict 9:16 viewport */
+#video-container{
+  position:relative;
+  width:min(100vw, calc(100vh * 9 / 16));
+  height:min(100vh, calc(100vw * 16 / 9));
+  margin:0 auto;
+  background:#000;
+  overflow:hidden;
+}
+
+/* Fullscreen video with black bars when needed */
+#video-container video{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:contain; /* keep entire frame, black bars show */
+  background:#000;
+}
+
+/* Caption — exactly 20px side padding from screen edges */
+#video-container .caption{
+  position:absolute;
+  bottom:calc(var(--sp-56) + 14px); /* above bottom-nav comfortably */
+  inset-inline:20px; /* 20px right & left as requested */
+  color:#fff;
+  background:linear-gradient(transparent, rgba(0,0,0,.6));
+  padding:12px 12px; /* visual padding inside bubble */
+  border-radius:var(--r-8);
+  font-size:var(--fs-15);
+  line-height:1.6;
+  max-height:3.2em; overflow:hidden;
+  cursor:pointer; user-select:none;
+}
+#video-container .caption.expanded{max-height:20em}
+
+/* Hashtags */
+#video-container .caption .hashtag{color:var(--accent); cursor:pointer}
+#video-container .caption .hashtag:hover{color:var(--accent-2); text-decoration:underline}
+
+/* Right-bottom stacked controls (above caption) */
+.video-controls{
+  position:absolute;
+  right:16px;
+  bottom:calc(var(--sp-56) + 96px); /* hover line above caption */
+  display:flex; flex-direction:column; gap:12px;
+  z-index:20;
+}
+.video-controls button{
+  width:44px; height:44px; border-radius:50%;
+  border:0; cursor:pointer; background:rgba(0,0,0,.55); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  transition:transform .15s ease, background .2s ease;
+}
+.video-controls button:hover{background:rgba(0,0,0,.8); transform:translateY(-1px)}
+.video-controls .material-icons{font-size:26px}
+
+/* Desktop-only up/down nav alongside the stage (for easier navigation) */
+@media (min-width: 992px){
+  .desktop-arrows{
+    position:absolute; right:8px; top:50%;
+    transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:10px; z-index:25;
+  }
+  .desktop-arrows .nav-btn{
+    width:44px; height:44px; border-radius:50%; border:0; cursor:pointer;
+    background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center;
+    transition:background .2s ease, transform .15s ease;
+  }
+  .desktop-arrows .nav-btn:hover{background:rgba(0,0,0,.8); transform:translateY(-1px)}
+}
+
+/* Tap to mute/unmute hint (optional helper class if used) */
+.tap-hint{
+  position:absolute; top:12px; inset-inline:12px; text-align:center;
+  font-size:12px; color:#e0e0e0; opacity:.75;
+}
+
+/*--------------------------------------
+  Toasts (global)
+---------------------------------------*/
+.toast{
+  position:fixed;
+  bottom:calc(var(--sp-56) + 16px);
+  left:50%; transform:translateX(-50%);
+  background:#263238; color:#fff; border-radius:10px;
+  padding:10px 14px; font-size:13px; z-index:1100;
+  box-shadow:var(--sh-soft); opacity:0; animation:toast-in .25s forwards, toast-out .25s forwards 2.75s;
+}
+.toast-success{background:#2e7d32}
+.toast-error{background:#b71c1c}
+@keyframes toast-in{from{opacity:0; transform:translate(-50%,10px)} to{opacity:1; transform:translate(-50%,0)}}
+@keyframes toast-out{to{opacity:0; transform:translate(-50%,10px)}}
+
+/*--------------------------------------
+  Search page
+  - sticky search bar
+  - 3-per-row portrait (9:16) cards
+  - no captions in results
+---------------------------------------*/
+.search-page{
+  min-height:100%;
+  background:var(--bg);
+  padding-bottom:var(--sp-56); /* keep space for bottom-nav */
+}
+
+/* Search bar wrapper */
+.search-bar{
+  position:sticky; top:0; z-index:900;
+  background:linear-gradient(#0b0b0b, rgba(0,0,0,.85));
+  backdrop-filter:saturate(140%) blur(6px);
+  padding:12px max(12px, calc(50vw - 210px)); /* center to ~mobile width */
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+
+/* Input: premium look */
+#search-input{
+  width:100%;
+  height:44px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:#0f0f0f;
+  color:#fafafa;
+  padding-inline:44px 14px; /* room for leading icon */
+  font-size:15px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);
+  transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+#search-input::placeholder{color:#9aa0a6}
+#search-input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(33,150,243,.24);
+  background:#101318;
+}
+
+/* Optional leading search icon if placed absolutely */
+.search-bar .leading-icon{
+  position:absolute; inset-inline-start:calc(50% - 190px); top:50%;
+  transform:translateY(-50%); color:#9aa0a6; pointer-events:none;
+}
+@media (max-width:480px){
+  .search-bar{padding:12px 12px}
+  .search-bar .leading-icon{inset-inline-start:18px}
+}
+
+/* Results grid centered to mobile width */
+#search-results{
+  max-width:420px; margin:16px auto; padding:0 8px 80px;
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+}
+
+/* Portrait 9:16 tiles with video or img */
+.search-item{
+  position:relative; width:100%;
+  aspect-ratio:9 / 16;
+  background:#000;
+  border-radius:10px; overflow:hidden;
+  box-shadow:0 6px 18px rgba(0,0,0,.22);
+  cursor:pointer;
+}
+.search-item video,
+.search-item img{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:cover; /* fill tile */
+}
+
+/* No captions in search results (even if present in markup) */
+#search-results .caption{display:none!important}
+
+/* Hover on desktop */
+@media (hover:hover){
+  .search-item:hover{transform:translateY(-2px); transition:transform .15s ease}
+}
+
+/*--------------------------------------
+  Settings page
+  - profile header
+  - saved videos section
+---------------------------------------*/
+.settings-page{
+  min-height:100%;
+  background:var(--bg);
+  padding:12px 12px calc(var(--sp-56) + 24px);
+}
+
+.settings-card{
+  max-width:420px; margin:0 auto 16px;
+  background:var(--surface);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:14px; box-shadow:var(--sh-soft);
+  padding:16px;
+}
+
+/* Profile header */
+#profile-section{
+  display:flex; align-items:center; gap:12px;
+}
+#avatar{
+  width:72px; height:72px; border-radius:50%;
+  background:#fff; color:#0f172a;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; flex-shrink:0;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+#avatar img{width:100%; height:100%; object-fit:cover}
+#avatar .material-icons{color:#0f172a; font-size:40px}
+
+#user-area{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+#login-btn{
+  background:var(--accent); color:#fff; border:0; cursor:pointer;
+  padding:8px 14px; border-radius:10px; font-size:14px;
+  box-shadow:0 6px 18px rgba(33,150,243,.25);
+}
+#login-btn:hover{background:#1e88e5}
+
+/* Stats row */
+.stats{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
+  margin-top:12px;
+}
+.stats p{
+  margin:0; text-align:center; background:#0f0f0f; border-radius:10px; padding:10px 6px;
+  border:1px solid rgba(255,255,255,.06); color:#dfe3e6; font-size:13px;
+}
+.stats p span{display:block; margin-top:6px; font-weight:700; color:#fff}
+
+/* Saved videos section (grid of 9:16) */
+.saved-title{
+  max-width:420px; margin:18px auto 8px; padding-inline:4px;
+  color:#dfe3e6; font-size:15px;
+}
+.saved-grid{
+  max-width:420px; margin:0 auto; padding:0 4px 80px;
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+}
+.saved-item{
+  position:relative; width:100%; aspect-ratio:9 / 16; background:#000;
+  border-radius:10px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,.22);
+}
+.saved-item img, .saved-item video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+
+/*--------------------------------------
+  Footer (copyright)
+---------------------------------------*/
+footer{
+  text-align:center; color:#b0bec5; font-size:12px;
+  padding:10px 8px calc(var(--sp-56) + 10px);
+}
+footer a{color:#81d4fa}
+
+/*--------------------------------------
+  Accessibility helpers
+---------------------------------------*/
+button:focus-visible, a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/*--------------------------------------
+  Optional helper: page-level classes
+  (if you add on <body>)
+---------------------------------------*/
+.home-page #search-results,
+.home-page .search-bar{display:none}
+
+.search-page #video-container,
+.search-page .caption,
+.search-page .video-controls{display:none}
+
+/*--------------------------------------
+  Small screens tweaks
+---------------------------------------*/
+@media (max-width:360px){
+  #video-container .caption{font-size:14px}
+  .video-controls button{width:42px; height:42px}
+}
+
+/*--------------------------------------
+  Large screens: keep mobile viewport centered,
+  black gutters around, and show desktop arrows
+---------------------------------------*/
+@media (min-width:992px){
+  body{display:flex; align-items:center; justify-content:center}
+  #video-container{margin-inline:auto}
+}
+
+/*--------------------------------------
+  Extra: generic inputs, checkboxes (if used)
+---------------------------------------*/
+.input, .select, .textarea{
+  width:100%; border:1px solid rgba(255,255,255,.14);
+  background:#0f0f0f; color:#e5e7eb;
+  border-radius:10px; padding:10px 12px; font-size:14px;
+}
+.input:focus, .select:focus, .textarea:focus{
+  outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(33,150,243,.24);
+}
+
+.checkbox, .radio{
+  appearance:none; width:18px; height:18px; margin:0;
+  border:2px solid #9aa0a6; background:transparent; cursor:pointer;
+  display:inline-block; vertical-align:middle;
+}
+.checkbox{border-radius:4px}
+.radio{border-radius:50%}
+.checkbox:checked{border-color:var(--accent); background:linear-gradient(135deg, var(--accent), #3ea8ff)}
+.checkbox:checked::after{
+  content:""; display:block; width:6px; height:3px; border-left:2px solid #fff; border-bottom:2px solid #fff; transform:translate(3px,4px) rotate(-45deg)
+}
+.radio:checked{border-color:var(--accent); background:radial-gradient(#3ea8ff 50%, transparent 51%)}

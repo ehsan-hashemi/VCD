@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSD - جستجو</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dark-theme">
+  <div id="offline-banner" class="hidden">اینترنت قطع شده است</div>
+
+  <div class="search-bar">
+    <input id="search-input" type="text" placeholder="جستجو..." />
+  </div>
+  <div id="search-results"></div>
+
+  <nav class="bottom-nav">
+    <button id="nav-home"><span class="material-icons">home</span></button>
+    <button disabled><span class="material-icons">search</span></button>
+    <button id="nav-add"><span class="material-icons">add_circle</span></button>
+    <button id="nav-settings"><span class="material-icons">settings</span></button>
+  </nav>
+
+  <footer>
+    &copy; <span id="year"></span> VSD - All rights reserved.
+    <a href="https://ehsan-hashemi.ir/">Ehsan Group</a>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+  <script src="js/search.js"></script>
+</body>
+</html>
