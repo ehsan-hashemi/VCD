@@ -2,59 +2,102 @@
 
 let videos = [];
 let currentIndex = 0;
-let isNavigating = false; // برای جلوگیری از اسکرول‌های پیاپی
+let isNavigating = false; // دیبانس ناوبری
 
-/**
- * Helpers: per-user/guest storage
- */
+// کلیدهای پایدار
+const KEYS = {
+  savedGuest: 'vsd:saved:guest',
+  savedUserPrefix: 'vsd:saved:', // + phone
+  viewsSummary: 'vsd:views:summary',
+  videoViews: 'vsd:views:perVideo',
+  legacySaved: 'saved',
+  legacyViews: 'views',
+  currentUser: 'currentUser'
+};
+
+// استور ساده + مهاجرت از کلیدهای قدیمی
 const Store = {
-  currentPhone: () => localStorage.getItem('currentUser') || null,
+  currentPhone: () => localStorage.getItem(KEYS.currentUser) || null,
 
   getSaved(phone) {
-    const key = phone ? `saved:${phone}` : 'saved:guest';
+    const key = phone ? `${KEYS.savedUserPrefix}${phone}` : KEYS.savedGuest;
     return JSON.parse(localStorage.getItem(key) || '[]');
   },
   setSaved(phone, arr) {
-    const key = phone ? `saved:${phone}` : 'saved:guest';
+    const key = phone ? `${KEYS.savedUserPrefix}${phone}` : KEYS.savedGuest;
     localStorage.setItem(key, JSON.stringify(arr));
   },
 
-  getViews(phone) {
-    const key = phone ? `views:${phone}` : 'views:guest';
-    return JSON.parse(localStorage.getItem(key) || '{}');
+  getViewsSummary() {
+    return JSON.parse(localStorage.getItem(KEYS.viewsSummary) || 'null') || {
+      lastDay: null,
+      daily: 0,
+      seenToday: [],
+      lastMonth: null,
+      monthly: 0,
+      seenThisMonth: []
+    };
   },
-  setViews(phone, obj) {
-    const key = phone ? `views:${phone}` : 'views:guest';
-    localStorage.setItem(key, JSON.stringify(obj));
+  setViewsSummary(obj) {
+    localStorage.setItem(KEYS.viewsSummary, JSON.stringify(obj));
+  },
+  getPerVideoViews() {
+    return JSON.parse(localStorage.getItem(KEYS.videoViews) || '{}');
+  },
+  setPerVideoViews(obj) {
+    localStorage.setItem(KEYS.videoViews, JSON.stringify(obj));
   },
 
-  // برای سازگاری با نسخه‌های قدیمی (در صورت نیاز)
-  getLegacySavedIds() {
-    return JSON.parse(localStorage.getItem('saved') || '[]');
-  },
-  setLegacySavedIds(arr) {
-    localStorage.setItem('saved', JSON.stringify(arr));
-  },
-  getLegacyViews() {
-    return JSON.parse(localStorage.getItem('views') || '{}');
-  },
-  setLegacyViews(obj) {
-    localStorage.setItem('views', JSON.stringify(obj));
+  migrate() {
+    // migrate legacy saved ids -> guest saved objects (حداقل id و src)
+    try {
+      const legacyIds = JSON.parse(localStorage.getItem(KEYS.legacySaved) || '[]');
+      if (Array.isArray(legacyIds) && legacyIds.length) {
+        const guest = Store.getSaved(null);
+        const missing = legacyIds.filter(id => !guest.some(x => String(x.id) === String(id)));
+        if (missing.length && Array.isArray(videos) && videos.length) {
+          missing.forEach(id => {
+            const v = videos.find(x => String(x.id) === String(id));
+            if (v) guest.push({ id: v.id, src: v.file, thumb: v.thumb || v.thumbnail || '', caption: v.caption || '' });
+          });
+          Store.setSaved(null, guest);
+        }
+      }
+    } catch {}
+
+    // migrate legacy views (جمع به‌عنوان summary)
+    try {
+      const legacy = JSON.parse(localStorage.getItem(KEYS.legacyViews) || 'null');
+      if (legacy && typeof legacy === 'object') {
+        const sum = Store.getViewsSummary();
+        // فقط اگر خالی بود، انتقال می‌دهیم
+        if (!sum.lastDay && !sum.lastMonth) {
+          Store.setViewsSummary({
+            lastDay: legacy.lastDay || null,
+            daily: legacy.daily || 0,
+            seenToday: [],
+            lastMonth: legacy.lastMonth || null,
+            monthly: legacy.monthly || 0,
+            seenThisMonth: []
+          });
+        }
+      }
+    } catch {}
   }
 };
 
 /**
- * نمایش یا مخفی کردن بنر آفلاین
+ * بنر آفلاین
  */
 function updateOnlineStatus() {
   const banner = document.getElementById('offline-banner');
+  if (!banner) return;
   if (navigator.onLine) banner.classList.add('hidden');
   else banner.classList.remove('hidden');
 }
 
 /**
- * پیمایش بین ویدیوها (بالا = بعدی، پایین = قبلی)
- * @param {number} delta +1 برای بعدی، -1 برای قبلی
+ * ناوبری بین ویدیوها (سوایپ بالا/اسکرول بالا = بعدی | پایین = قبلی)
  */
 function navigate(delta) {
   if (isNavigating) return;
@@ -66,8 +109,7 @@ function navigate(delta) {
 }
 
 /**
- * بارگذاری و پخش یک ویدیو
- * @param {number} idx
+ * بارگذاری ویدیو و راه‌اندازی اکشن‌ها
  */
 function loadVideo(idx) {
   currentIndex = idx;
@@ -83,41 +125,45 @@ function loadVideo(idx) {
   videoEl.autoplay = true;
   videoEl.loop = true;
   videoEl.playsInline = true;
-  videoEl.muted = true; // شروع بی‌صدا
+  videoEl.muted = window._vsdMuted ?? true; // شروع بی‌صدا
   videoEl.className = 'video-frame';
 
-  // اجرای اجباری (در برخی مرورگرها)
-  videoEl.addEventListener('loadeddata', () => {
-    const p = videoEl.play();
-    if (p && p.catch) p.catch(() => {});
-  });
-
-  // کلیک برای قطع/وصل صدا
+  // اجرای اجباری
   videoEl.addEventListener('click', () => {
     videoEl.muted = !videoEl.muted;
+    window._vsdMuted = videoEl.muted; // ذخیره وضعیت جدید صدا
+  });
+
+  // کلیک/تاچ برای قطع/وصل صدا + نشانگر
+  videoEl.addEventListener('click', toggleMuteWithIndicator);
+  videoEl.addEventListener('touchend', (e) => {
+    // جلوگیری از تداخل با سوایپ: اگر لمس کوتاه بود
+    if (e.changedTouches && e.changedTouches.length === 1) {
+      toggleMuteWithIndicator();
+    }
   });
 
   container.appendChild(videoEl);
 
-  // کنترل‌های ویدیو
+  // کنترل‌ها
   const controls = document.createElement('div');
   controls.className = 'video-controls';
 
-  // دکمه ذخیره
   const saveBtn = document.createElement('button');
   saveBtn.innerHTML = `<span class="material-icons">bookmark_border</span>`;
   saveBtn.title = 'ذخیره ویدیو';
   saveBtn.onclick = toggleSave;
   controls.appendChild(saveBtn);
 
-  // دکمه اشتراک‌گذاری
   const shareBtn = document.createElement('button');
   shareBtn.innerHTML = `<span class="material-icons">share</span>`;
   shareBtn.title = 'اشتراک‌گذاری';
-  shareBtn.onclick = () => shareVideo(window.location.origin + window.location.pathname + `#v=${vid.id}`);
+  shareBtn.onclick = () => {
+    const url = `${location.origin}${location.pathname}#v=${vid.id}`;
+    shareVideo(url);
+  };
   controls.appendChild(shareBtn);
 
-  // دکمه دانلود
   const dlBtn = document.createElement('button');
   dlBtn.innerHTML = `<span class="material-icons">file_download</span>`;
   dlBtn.title = 'دانلود ویدیو';
@@ -131,7 +177,7 @@ function loadVideo(idx) {
 
   container.appendChild(controls);
 
-  // کپشن (با هشتگ و امکان گسترش)
+  // کپشن
   if (vid.caption) {
     const cap = document.createElement('div');
     cap.className = 'caption';
@@ -141,23 +187,39 @@ function loadVideo(idx) {
     container.appendChild(cap);
   }
 
-  // شمارش بازدید
-  incrementViewCounts();
+  // شمارش بازدید یکتا
+  incrementViewCounts(vid.id);
 
-  // آیکون ذخیره را تنظیم کن
+  // آیکون ذخیره
   updateSaveIcon();
+
+  // تزریق CSS حداقلی برای نشانگر صدا (اگر نبود)
+  ensureInlineStyles();
 }
 
 /**
- * فرمت کردن کپشن و تبدیل هشتگ‌ها
+ * نشانگر قطع/وصل صدا
+ */
+function toggleMuteWithIndicator() {
+  const videoEl = document.querySelector('#video-container video');
+  if (!videoEl) return;
+  videoEl.muted = !videoEl.muted;
+
+  const indicator = document.createElement('div');
+  indicator.className = 'volume-indicator';
+  indicator.innerHTML = `<span class="material-icons">${videoEl.muted ? 'volume_off' : 'volume_up'}</span>`;
+  document.getElementById('video-container').appendChild(indicator);
+  requestAnimationFrame(() => indicator.classList.add('show'));
+  setTimeout(() => indicator.classList.remove('show'), 700);
+  setTimeout(() => indicator.remove(), 1000);
+}
+
+/**
+ * کپشن با هشتگ کلیک‌پذیر
  */
 function formatCaption(text) {
   return (text || '').replace(/#(\S+)/g, `<span class="hashtag">#$1</span>`);
 }
-
-/**
- * رویداد کلیک روی هشتگ‌ها
- */
 function attachHashtagEvents(capEl) {
   capEl.querySelectorAll('.hashtag').forEach(span => {
     span.onclick = e => {
@@ -169,18 +231,15 @@ function attachHashtagEvents(capEl) {
 }
 
 /**
- * ذخیره/حذف ویدیو در لیست ذخیره‌شده‌ها (با ساختار شیء)
+ * ذخیره/حذف ویدیو
  */
 function toggleSave() {
   const vid = videos[currentIndex];
   const phone = Store.currentPhone();
-
-  // آرایه‌ی ذخیره‌ها (برای کاربر یا مهمان)
   const savedList = Store.getSaved(phone);
 
   const idx = savedList.findIndex(x => String(x.id) === String(vid.id));
   if (idx === -1) {
-    // اضافه کردن شیء کامل
     savedList.push({
       id: vid.id,
       src: vid.file,
@@ -189,34 +248,21 @@ function toggleSave() {
     });
     showToast('به ذخیره‌ها اضافه شد', 'success');
   } else {
-    // حذف
     savedList.splice(idx, 1);
     showToast('از ذخیره‌ها حذف شد', 'success');
   }
-
   Store.setSaved(phone, savedList);
 
-  // برای سازگاری با نسخه قدیمی (فقط لیست آیدی‌ها)
-  try {
-    const legacyIds = Store.getLegacySavedIds();
-    const legacyIdx = legacyIds.indexOf(vid.id);
-    if (idx === -1 && legacyIdx === -1) {
-      legacyIds.push(vid.id);
-    } else if (idx !== -1 && legacyIdx !== -1) {
-      legacyIds.splice(legacyIdx, 1);
-    }
-    Store.setLegacySavedIds(legacyIds);
-  } catch {}
-
+  // هم‌خوانی با آیکون
   updateSaveIcon();
 }
 
 /**
- * تغییر آیکون ذخیره بر اساس وضعیت
+ * آیکون ذخیره
  */
 function updateSaveIcon() {
-  const phone = Store.currentPhone();
   const vidId = videos[currentIndex]?.id;
+  const phone = Store.currentPhone();
   const savedList = Store.getSaved(phone);
   const isSaved = savedList.some(x => String(x.id) === String(vidId));
   const ico = document.querySelector('.video-controls button:first-child .material-icons');
@@ -224,59 +270,92 @@ function updateSaveIcon() {
 }
 
 /**
- * شمارش بازدید روزانه و ماهانه (برای مهمان و اگر وارد شده، برای کاربر)
+ * بازدید یکتا: summary (روز/ماه) + perVideo (توتال یکتا)
  */
-function incrementViewCounts() {
+function incrementViewCounts(videoId) {
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
 
-  const phone = Store.currentPhone();
-
-  // guest
-  const g = Store.getViews(null);
-  if (g.lastDay === today) g.daily = (g.daily || 0) + 1;
-  else { g.daily = 1; g.lastDay = today; }
-  if (g.lastMonth === month) g.monthly = (g.monthly || 0) + 1;
-  else { g.monthly = 1; g.lastMonth = month; }
-  Store.setViews(null, g);
-
-  // per-user (اگر وارد شده بود)
-  if (phone) {
-    const u = Store.getViews(phone);
-    if (u.lastDay === today) u.daily = (u.daily || 0) + 1;
-    else { u.daily = 1; u.lastDay = today; }
-    if (u.lastMonth === month) u.monthly = (u.monthly || 0) + 1;
-    else { u.monthly = 1; u.lastMonth = month; }
-    Store.setViews(phone, u);
+  // خلاصه‌ی روز/ماه با لیست یکتا
+  const sum = Store.getViewsSummary();
+  if (sum.lastDay !== today) {
+    sum.lastDay = today;
+    sum.daily = 0;
+    sum.seenToday = [];
   }
+  if (sum.lastMonth !== month) {
+    sum.lastMonth = month;
+    sum.monthly = 0;
+    sum.seenThisMonth = [];
+  }
+  if (!sum.seenToday.includes(videoId)) {
+    sum.daily += 1;
+    sum.seenToday.push(videoId);
+  }
+  if (!sum.seenThisMonth.includes(videoId)) {
+    sum.monthly += 1;
+    sum.seenThisMonth.push(videoId);
+  }
+  Store.setViewsSummary(sum);
 
-  // سازگاری قدیمی
-  try {
-    const legacy = Store.getLegacyViews();
-    if (legacy.lastDay === today) legacy.daily = (legacy.daily || 0) + 1;
-    else { legacy.daily = 1; legacy.lastDay = today; }
-    if (legacy.lastMonth === month) legacy.monthly = (legacy.monthly || 0) + 1;
-    else { legacy.monthly = 1; legacy.lastMonth = month; }
-    Store.setLegacyViews(legacy);
-  } catch {}
+  // یکتای هر ویدیو (مادام‌العمر)
+  const per = Store.getPerVideoViews();
+  if (!per[videoId]) {
+    per[videoId] = { totalUnique: 1, lastSeenDay: today };
+  } else {
+    // فقط اولین بار شمرده می‌شود؛ اما lastSeenDay را به‌روز می‌کنیم
+    if (per[videoId].lastSeenDay !== today) {
+      per[videoId].lastSeenDay = today;
+    }
+  }
+  Store.setPerVideoViews(per);
 }
 
 /**
- * اشتراک‌گذاری یا کپی لینک
+ * اشتراک‌گذاری پایدار روی موبایل
  */
 function shareVideo(url) {
+  const doCopy = () => {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(url)
+        .then(() => showToast('لینک کپی شد!', 'success'))
+        .catch(() => fallbackShareDialog(url));
+    } else {
+      fallbackShareDialog(url);
+      return Promise.resolve();
+    }
+  };
+
   if (navigator.share) {
     navigator.share({ title: 'ویدیو جالب!', text: 'این ویدیو رو ببین:', url })
-      .catch(() => showToast('امکان اشتراک‌گذاری وجود ندارد', 'error'));
+      .catch(() => doCopy());
   } else {
-    navigator.clipboard.writeText(url)
-      .then(() => showToast('لینک کپی شد!', 'success'))
-      .catch(() => showToast('کپی لینک انجام نشد', 'error'));
+    doCopy();
   }
 }
 
+function fallbackShareDialog(url) {
+  // یک دیالوگ ساده با ورودی قابل انتخاب
+  const wrap = document.createElement('div');
+  wrap.className = 'share-fallback';
+  wrap.innerHTML = `
+    <div class="share-box">
+      <div class="share-title">لینک را کپی کنید</div>
+      <input class="share-input" value="${url}" readonly />
+      <button class="share-close"><span class="material-icons">close</span></button>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+  const input = wrap.querySelector('.share-input');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  try { document.execCommand('copy'); showToast('لینک کپی شد!', 'success'); } catch {}
+  wrap.querySelector('.share-close').onclick = () => wrap.remove();
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+}
+
 /**
- * پیام موقت
+ * Toast
  */
 function showToast(message, type) {
   const t = document.createElement('div');
@@ -287,36 +366,65 @@ function showToast(message, type) {
 }
 
 /**
- * بارگذاری اولیه و رویدادها
+ * استایل‌های حداقلی لازم برای نشانگر صدا و دیالوگ اشتراک‌گذاری
+ */
+function ensureInlineStyles() {
+  if (document.getElementById('vsd-inline-styles')) return;
+  const css = `
+  .volume-indicator {
+    position: absolute; inset: 0; display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .volume-indicator .material-icons {
+    font-size: 64px; color: rgba(255,255,255,0.9); text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .volume-indicator.show { opacity:1; }
+  .share-fallback {
+    position: fixed; inset:0; background: rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; z-index: 9999;
+  }
+  .share-box {
+    background:#1e1e1e; color:#fff; border-radius:12px; padding:16px; width:min(90vw,480px); position:relative; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .share-title { font-weight:700; margin-bottom:8px; }
+  .share-input {
+    width:100%; padding:12px; border:1px solid #444; border-radius:8px; background:#111; color:#fff; direction:ltr;
+  }
+  .share-close { position:absolute; top:8px; left:8px; background:transparent; border:0; color:#fff; cursor:pointer; }
+  `;
+  const style = document.createElement('style');
+  style.id = 'vsd-inline-styles';
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
+/**
+ * رویدادهای اولیه
  */
 document.addEventListener('DOMContentLoaded', () => {
   updateOnlineStatus();
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // واکشی ویدیوها
   fetch('data/videos.json')
     .then(res => {
       if (!res.ok) throw new Error('دریافت ویدیوها با خطا مواجه شد');
       return res.json();
     })
     .then(data => {
-      videos = data.sort((a, b) => b.id - a.id);
+      videos = (data || []).sort((a, b) => b.id - a.id);
 
-      // اگر از saved یا search آمده‌ایم
-      const hashParams = new URLSearchParams(location.hash.slice(1));
-      const deepId = hashParams.get('v');
+      // مهاجرت داده‌ها بعد از اینکه ویدیوها را داریم
+      Store.migrate();
+
+      // دیپ‌لینک #v
+      const deepId = new URLSearchParams(location.hash.slice(1)).get('v');
       const intent = localStorage.getItem('openVideo');
 
       if (intent) {
         try {
           const obj = JSON.parse(intent);
           const idx = videos.findIndex(v => String(v.id) === String(obj.id));
-          if (idx >= 0) {
-            loadVideo(idx);
-          } else {
-            loadVideo(0);
-          }
+          loadVideo(idx >= 0 ? idx : 0);
         } catch {
           loadVideo(0);
         } finally {
@@ -331,23 +439,37 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(err => showToast(err.message, 'error'));
 
-  // پیمایش با اسکرول: بالا (deltaY < 0) = بعدی، پایین = قبلی
-  window.addEventListener("wheel", e => {
+  // اسکرول ماوس: بالا = بعدی، پایین = قبلی (مطابق خواسته‌ات)
+  window.addEventListener('wheel', e => {
     e.preventDefault();
-    navigate(e.deltaY > 0 ? 1 : -1); // اگر اسکرول پایین بود، برو جلوتر
+    navigate(e.deltaY < 0 ? +1 : -1);
   }, { passive: false });
 
-  // کلیدهای جهت‌نما (اختیاری)
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowUp') navigate(+1);
-    else if (e.key === 'ArrowDown') navigate(-1);
-  });
+  // سوایپ موبایل: up => next, down => prev
+  let touchStartY = null;
+  let touchStartX = null;
+  const SWIPE_THRESHOLD = 50; // px
+  window.addEventListener('touchstart', e => {
+    if (!e.touches || !e.touches.length) return;
+    touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
 
-  // نوار پایین
-  document.getElementById('nav-home').onclick = () => location.href = '/index.html';
-  document.getElementById('nav-search').onclick = () => location.href = '/search.html';
+  window.addEventListener('touchend', e => {
+    if (!e.changedTouches || !e.changedTouches.length) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SWIPE_THRESHOLD) {
+      // سوایپ عمودی
+      navigate(dy < 0 ? +1 : -1); // بالا (dy منفی) = بعدی
+    }
+  }, { passive: true });
+
+  // ناوبری پایین
+  document.getElementById('nav-home').onclick = () => location.href = 'index.html';
+  document.getElementById('nav-search').onclick = () => location.href = 'search.html';
   document.getElementById('nav-add').onclick = () => {
     location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3zvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
   };
-  document.getElementById('nav-settings').onclick = () => location.href = '/settings.html';
+  document.getElementById('nav-settings').onclick = () => location.href = 'settings.html';
 });
