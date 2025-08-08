@@ -49,6 +49,8 @@ body{
   color:var(--fg);
   font-family:var(--font);
   direction:rtl;
+  overscroll-behavior-y: contain;
+  touch-action: pan-x pan-y;
 }
 
 /* Material icons sizing (inherit color) */

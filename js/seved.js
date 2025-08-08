@@ -3,56 +3,29 @@
 /**
  * واکشی و نمایش ویدیوهای ذخیره‌شده
  */
-document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("saved-list");
-  const phone = localStorage.getItem("currentUser");
-  const key = phone ? `saved:${phone}` : "saved:guest";
-  const saved = JSON.parse(localStorage.getItem(key) || "[]");
+document.addEventListener('DOMContentLoaded', () => {
+  const savedContainer = document.getElementById('saved-videos');
+
+  const phone = localStorage.getItem('currentUser');
+  const saved = JSON.parse(localStorage.getItem(phone ? `saved:${phone}` : 'saved:guest') || '[]');
 
   if (!saved.length) {
-    container.innerHTML = `<div class="empty-saved">ویدیویی ذخیره نشده است 😶</div>`;
+    savedContainer.innerHTML = '<p style="color:#90a4ae; text-align:center;">ویدیویی ذخیره نشده.</p>';
     return;
   }
 
-  saved.forEach(vid => {
-    const card = document.createElement("div");
-    card.className = "video-card";
-
-    // پیش‌نمایش ویدیو
-    const video = document.createElement("video");
-    video.src = vid.src;
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.className = "video-thumb";
-    card.appendChild(video);
-
-    // کپشن
-    const caption = document.createElement("div");
-    caption.className = "caption-text";
-    caption.innerHTML = vid.caption || "";
-    card.appendChild(caption);
-
-    // دکمه حذف
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "remove-button";
-    removeBtn.innerHTML = `<span class="material-icons">delete</span>`;
-    removeBtn.title = "حذف از ذخیره‌ها";
-    removeBtn.onclick = () => {
-      const updated = saved.filter(x => x.id !== vid.id);
-      localStorage.setItem(key, JSON.stringify(updated));
-      location.reload();
+  saved.reverse().forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'saved-item';
+    div.title = item.title || 'ویدیو';
+    div.innerHTML = item.thumb
+      ? `<img src="${item.thumb}" alt="${item.title || ''}" />`
+      : `<div style="background:#1c1c1c; height:160px;"></div>`;
+    div.onclick = () => {
+      localStorage.setItem('openVideo', JSON.stringify(item));
+      location.href = 'index.html';
     };
-    card.appendChild(removeBtn);
-
-    // کلیک روی کارت برای باز کردن ویدیو
-    card.addEventListener("click", e => {
-      if (e.target.tagName === "BUTTON" || e.target.closest("button")) return;
-      localStorage.setItem("openVideo", JSON.stringify(vid));
-      location.href = "index.html";
-    });
-
-    container.appendChild(card);
+    savedContainer.appendChild(div);
   });
 });
+
