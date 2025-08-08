@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,13 +8,18 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="dark-theme">
+  <!-- آفلاین -->
   <div id="offline-banner" class="hidden">اینترنت قطع شده است</div>
 
+  <!-- جستجو -->
   <div class="search-bar">
-    <input id="search-input" type="text" placeholder="جستجو..." />
+    <input id="search-input" type="text" placeholder="جستجو در کپشن و هشتگ..." />
   </div>
-  <div id="search-results"></div>
 
+  <!-- نتایج -->
+  <div id="search-results" class="search-grid"></div>
+
+  <!-- ناوبری پایین -->
   <nav class="bottom-nav">
     <button id="nav-home"><span class="material-icons">home</span></button>
     <button disabled><span class="material-icons">search</span></button>
@@ -27,9 +32,7 @@
     <a href="https://ehsan-hashemi.ir/">Ehsan Group</a>
   </footer>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
   <script src="js/search.js"></script>
 </body>
 </html>

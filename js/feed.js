@@ -125,7 +125,7 @@ function loadVideo(idx) {
   videoEl.autoplay = true;
   videoEl.loop = true;
   videoEl.playsInline = true;
-  videoEl.muted = localStorage.getItem("vsd-muted") === "false" ? false : true; // شروع بی‌صدا
+  videoEl.muted = true; // شروع بی‌صدا
   videoEl.className = 'video-frame';
 
   // اجرای اجباری
@@ -242,9 +242,9 @@ function toggleSave() {
   if (idx === -1) {
     savedList.push({
       id: vid.id,
-      src: vid.file,
-      thumb: vid.thumb || vid.thumbnail || '',
-      caption: vid.caption || ''
+      videoUrl: vid.file, // تطابق با settings.js
+      caption: vid.caption || '',
+      thumb: vid.thumb || vid.thumbnail || ''
     });
     showToast('به ذخیره‌ها اضافه شد', 'success');
   } else {
