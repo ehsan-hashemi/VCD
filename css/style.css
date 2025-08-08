@@ -40,7 +40,10 @@
   font-display:swap;
 }
 
-*{box-sizing:border-box}
+* {
+  box-sizing:border-box;
+  font-family: "Vazir";
+}
 html,body{height:100%;width:100%}
 html{scroll-behavior:smooth}
 body{
