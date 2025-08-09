@@ -125,13 +125,12 @@ function loadVideo(idx) {
   videoEl.autoplay = true;
   videoEl.loop = true;
   videoEl.playsInline = true;
-  videoEl.muted = true; // شروع بی‌صدا
+  videoEl.muted = localStorage.getItem("vsd-muted") === true; // شروع بی‌صدا
   videoEl.className = 'video-frame';
 
   // اجرای اجباری
   videoEl.addEventListener("click", () => {
     videoEl.muted = !videoEl.muted;
-    localStorage.setItem("vsd-muted", String(videoEl.muted)); // ذخیره دائمی وضعیت صدا
   });
 
   // کلیک/تاچ برای قطع/وصل صدا + نشانگر
