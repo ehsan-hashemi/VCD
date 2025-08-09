@@ -6,6 +6,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const keywordFromHash = new URLSearchParams(location.search).get("tag");
   let videos = [];
 
+  // ---------------------------
+  // کش Thumbnail در localStorage
+  // ---------------------------
+  const TH_CACHE_KEY = 'vsd:thumbs';
+  const ThumbCache = {
+    get(u) {
+      try {
+        return JSON.parse(localStorage.getItem(TH_CACHE_KEY) || '{}')[u] || null;
+      } catch { return null; }
+    },
+    set(u, data) {
+      try {
+        const m = JSON.parse(localStorage.getItem(TH_CACHE_KEY) || '{}');
+        m[u] = data;
+        localStorage.setItem(TH_CACHE_KEY, JSON.stringify(m));
+      } catch {}
+    }
+  };
+
+  // ---------------------------
+  // گرفتن فریم وسط ویدیو
+  // ---------------------------
+  async function getMiddleFrameThumbnail(videoUrl) {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.src = videoUrl;
+        video.muted = true;
+        video.playsInline = true;
+        video.onerror = () => resolve(null);
+
+        video.addEventListener('loadedmetadata', () => {
+          if (!video.duration || !video.videoWidth || !video.videoHeight) {
+            return resolve(null);
+          }
+          const middleSec = video.duration / 2;
+          const onSeeked = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let url = null;
+            try { url = canvas.toDataURL('image/jpeg', 0.75); } catch {}
+            resolve(url);
+          };
+          video.addEventListener('seeked', onSeeked, { once: true });
+          try { video.currentTime = middleSec; } catch { resolve(null); }
+        }, { once: true });
+      } catch { resolve(null); }
+    });
+  }
+
+  // ---------------------------
+  // وضعیت آنلاین/آفلاین
+  // ---------------------------
   function updateOnlineStatus() {
     const banner = document.getElementById("offline-banner");
     if (!banner) return;
@@ -15,6 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener("offline", updateOnlineStatus);
   updateOnlineStatus();
 
+  // ---------------------------
+  // دریافت لیست ویدیوها
+  // ---------------------------
   fetch("data/videos.json")
     .then(res => {
       if (!res.ok) throw new Error("ویدیوها دریافت نشد");
@@ -34,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
       results.innerHTML = `<p style="text-align:center; color:#ff6f60">خطا در بارگذاری ویدیوها</p>`;
     });
 
+  // ---------------------------
+  // سرچ
+  // ---------------------------
   input.addEventListener("input", () => {
     const term = input.value.trim();
     if (!term) renderGrid(videos);
@@ -60,6 +123,9 @@ document.addEventListener('DOMContentLoaded', () => {
     else results.innerHTML = `<p style="text-align:center; color:#90a4ae">هیچ ویدیویی یافت نشد</p>`;
   }
 
+  // ---------------------------
+  // رندر کارت‌ها — همیشه فریم وسط ساخته می‌شود
+  // ---------------------------
   function renderGrid(arr) {
     results.innerHTML = '';
     arr.forEach(vid => {
@@ -68,11 +134,32 @@ document.addEventListener('DOMContentLoaded', () => {
       card.title = vid.caption || "ویدیو";
 
       const thumb = document.createElement("img");
-      thumb.src = vid.thumbnail || vid.thumb || "https://via.placeholder.com/160x285?text=No+Thumb";
       thumb.alt = vid.caption || "";
       thumb.style.width = "100%";
       thumb.style.height = "100%";
       thumb.style.objectFit = "cover";
+
+      const videoUrl = vid.file || vid.videoUrl || vid.url || null;
+
+      if (videoUrl) {
+        const cached = ThumbCache.get(videoUrl);
+        if (cached) {
+          thumb.src = cached;
+        } else {
+          thumb.src = "https://via.placeholder.com/160x285?text=Loading...";
+          getMiddleFrameThumbnail(videoUrl).then(t => {
+            if (t) {
+              ThumbCache.set(videoUrl, t);
+              thumb.src = t;
+            } else {
+              thumb.src = "https://via.placeholder.com/160x285?text=No+Thumb";
+            }
+          });
+        }
+      } else {
+        thumb.src = "https://via.placeholder.com/160x285?text=No+Video";
+      }
+
       card.appendChild(thumb);
 
       card.addEventListener("click", () => {
@@ -84,7 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ---------------------------
   // ناوبری پایین
+  // ---------------------------
   document.getElementById('nav-home').onclick = () => location.href = 'index.html';
   document.getElementById('nav-settings').onclick = () => location.href = 'settings.html';
   document.getElementById('nav-add').onclick = () => {
