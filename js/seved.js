@@ -1,5 +1,22 @@
 // File: js/seved.js
 document.addEventListener("DOMContentLoaded", () => {
+  (function migrateSavedStructure(){
+    const phone = localStorage.getItem("currentUser");
+    const key = phone ? `saved:${phone}` : "saved:guest";
+    const saved = JSON.parse(localStorage.getItem(key) || "[]");
+    let changed = false;
+    const updated = saved.map(item => {
+      if (!item.videoUrl && item.src) { 
+        item.videoUrl = item.src;
+        delete item.src;
+        changed = true;
+      }
+      return item;
+    });
+    if (changed) {
+      localStorage.setItem(key, JSON.stringify(updated));
+    }
+  })();
   const container = document.getElementById("saved-list");
   const phone = localStorage.getItem("currentUser");
   const key = phone ? `saved:${phone}` : "saved:guest";

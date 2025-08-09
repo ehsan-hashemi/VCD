@@ -241,9 +241,9 @@ function toggleSave() {
   if (idx === -1) {
     savedList.push({
       id: vid.id,
-      videoUrl: vid.file, // تطابق با settings.js
-      caption: vid.caption || '',
-      thumb: vid.thumb || vid.thumbnail || ''
+      videoUrl: vid.file, // همخوان با settings.js
+      thumb: vid.thumb || vid.thumbnail || '',
+      caption: vid.caption || ''
     });
     showToast('به ذخیره‌ها اضافه شد', 'success');
   } else {

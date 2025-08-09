@@ -1,5 +1,22 @@
 // File: js/settings.js
 document.addEventListener('DOMContentLoaded', () => {
+  (function migrateSavedStructure(){
+    const phone = localStorage.getItem("currentUser");
+    const key = phone ? `saved:${phone}` : "saved:guest";
+    const saved = JSON.parse(localStorage.getItem(key) || "[]");
+    let changed = false;
+    const updated = saved.map(item => {
+      if (!item.videoUrl && item.src) { 
+        item.videoUrl = item.src;
+        delete item.src;
+        changed = true;
+      }
+      return item;
+    });
+    if (changed) {
+      localStorage.setItem(key, JSON.stringify(updated));
+    }
+  })();
   // عناصر صفحه و فرم‌ها
   const loginBtn = document.getElementById('login-btn');
   const userArea = document.getElementById('user-area');
