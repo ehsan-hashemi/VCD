@@ -96,6 +96,8 @@ function updateOnlineStatus() {
   else banner.classList.remove('hidden');
 }
 
+
+
 /**
  * ناوبری بین ویدیوها (سوایپ بالا/اسکرول بالا = بعدی | پایین = قبلی)
  */
@@ -174,6 +176,8 @@ function loadVideo(idx) {
   };
   controls.appendChild(dlBtn);
 
+  
+
   container.appendChild(controls);
 
   // کپشن
@@ -185,6 +189,7 @@ function loadVideo(idx) {
     attachHashtagEvents(cap);
     container.appendChild(cap);
   }
+  
 
   // شمارش بازدید یکتا
   incrementViewCounts(vid.id);
@@ -228,6 +233,8 @@ function attachHashtagEvents(capEl) {
     };
   });
 }
+
+
 
 /**
  * ذخیره/حذف ویدیو
