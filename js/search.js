@@ -26,39 +26,45 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ---------------------------
-  // گرفتن فریم وسط ویدیو
+  // گرفتن فریم دلخواه از ویدیو
   // ---------------------------
-  async function getMiddleFrameThumbnail(videoUrl) {
-  return new Promise((resolve) => {
-    try {
-      const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.src = videoUrl;
-      video.muted = true;
-      video.playsInline = true;
-      video.onerror = () => resolve(null);
+  async function getMiddleFrameThumbnail(videoUrl, fraction = 1/3, fixedSec = null) {
+    return new Promise((resolve) => {
+      try {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.src = videoUrl;
+        video.muted = true;
+        video.playsInline = true;
+        video.onerror = () => resolve(null);
 
-      video.addEventListener('loadedmetadata', () => {
-        if (!video.duration || !video.videoWidth || !video.videoHeight) {
-          return resolve(null);
-        }
-        const middleSec = video.duration / 3;
-        const onSeeked = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          let url = null;
-          try { url = canvas.toDataURL('image/jpeg', 0.75); } catch {}
-          resolve(url);
-        };
-        video.addEventListener('seeked', onSeeked, { once: true });
-        try { video.currentTime = middleSec; } catch { resolve(null); }
-      }, { once: true });
-    } catch { resolve(null); }
-  });
-}
+        video.addEventListener('loadedmetadata', () => {
+          if (!video.duration || !video.videoWidth || !video.videoHeight) {
+            return resolve(null);
+          }
+
+          // اگر ثانیه مشخص داده شده باشد، همان استفاده می‌شود
+          let seekTo = fixedSec !== null 
+            ? Math.min(fixedSec, video.duration - 0.1) 
+            : video.duration * fraction;
+
+          const onSeeked = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let url = null;
+            try { url = canvas.toDataURL('image/jpeg', 0.75); } catch {}
+            resolve(url);
+          };
+          video.addEventListener('seeked', onSeeked, { once: true });
+
+          try { video.currentTime = seekTo; } catch { resolve(null); }
+        }, { once: true });
+      } catch { resolve(null); }
+    });
+  }
 
   // ---------------------------
   // وضعیت آنلاین/آفلاین
@@ -124,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------
-  // رندر کارت‌ها — همیشه فریم وسط ساخته می‌شود
+  // رندر کارت‌ها — فریم دلخواه
   // ---------------------------
   function renderGrid(arr) {
     results.innerHTML = '';
@@ -147,7 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
           thumb.src = cached;
         } else {
           thumb.src = "https://via.placeholder.com/160x285?text=Loading...";
-          getMiddleFrameThumbnail(videoUrl).then(t => {
+
+          // اینجا fraction رو تغییر بده؛ مثلا 1/3 یا حتی ثانیه ثابت
+          getMiddleFrameThumbnail(videoUrl, 1/3 /* fraction */, null /* fixedSec */).then(t => {
             if (t) {
               ThumbCache.set(videoUrl, t);
               thumb.src = t;
