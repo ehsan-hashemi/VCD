@@ -183,7 +183,7 @@ async function getMiddleFrameThumbnail(videoUrl) {
         if (!video.duration || !video.videoWidth || !video.videoHeight) {
           return resolve(null);
         }
-        const middleSec = video.duration / 2;
+        const middleSec = video.duration / 3;
         const onSeeked = () => {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
