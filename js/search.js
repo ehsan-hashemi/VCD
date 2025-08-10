@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ---------------------------
-  // گرفتن فریم دلخواه از ویدیو
+  // گرفتن فریم از 1/3 ویدیو (هماهنگ با settings.js)
   // ---------------------------
-  async function getMiddleFrameThumbnail(videoUrl, fraction = 1/3, fixedSec = null) {
+  async function getMiddleFrameThumbnail(videoUrl) {
     return new Promise((resolve) => {
       try {
         const video = document.createElement('video');
@@ -42,12 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!video.duration || !video.videoWidth || !video.videoHeight) {
             return resolve(null);
           }
-
-          // اگر ثانیه مشخص داده شده باشد، همان استفاده می‌شود
-          let seekTo = fixedSec !== null 
-            ? Math.min(fixedSec, video.duration - 0.1) 
-            : video.duration * fraction;
-
+          const middleSec = video.duration / 3;
           const onSeeked = () => {
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
@@ -59,11 +54,22 @@ document.addEventListener('DOMContentLoaded', () => {
             resolve(url);
           };
           video.addEventListener('seeked', onSeeked, { once: true });
-
-          try { video.currentTime = seekTo; } catch { resolve(null); }
+          try { video.currentTime = middleSec; } catch { resolve(null); }
         }, { once: true });
       } catch { resolve(null); }
     });
+  }
+
+  // ---------------------------
+  // گرفتن یا ساخت thumbnail
+  // ---------------------------
+  async function ensureSearchThumb(videoUrl) {
+    let thumb = ThumbCache.get(videoUrl);
+    if (!thumb) {
+      thumb = await getMiddleFrameThumbnail(videoUrl);
+      if (thumb) ThumbCache.set(videoUrl, thumb);
+    }
+    return thumb;
   }
 
   // ---------------------------
@@ -130,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------
-  // رندر کارت‌ها — فریم دلخواه
+  // رندر کارت‌ها
   // ---------------------------
   function renderGrid(arr) {
     results.innerHTML = '';
@@ -148,22 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const videoUrl = vid.file || vid.videoUrl || vid.url || null;
 
       if (videoUrl) {
-        const cached = ThumbCache.get(videoUrl);
-        if (cached) {
-          thumb.src = cached;
-        } else {
-          thumb.src = "https://via.placeholder.com/160x285?text=Loading...";
-
-          // اینجا fraction رو تغییر بده؛ مثلا 1/3 یا حتی ثانیه ثابت
-          getMiddleFrameThumbnail(videoUrl, 1/3 /* fraction */, null /* fixedSec */).then(t => {
-            if (t) {
-              ThumbCache.set(videoUrl, t);
-              thumb.src = t;
-            } else {
-              thumb.src = "https://via.placeholder.com/160x285?text=No+Thumb";
-            }
-          });
-        }
+        thumb.src = "https://via.placeholder.com/160x285?text=Loading...";
+        ensureSearchThumb(videoUrl).then(t => {
+          thumb.src = t || "https://via.placeholder.com/160x285?text=No+Thumb";
+        });
       } else {
         thumb.src = "https://via.placeholder.com/160x285?text=No+Video";
       }
