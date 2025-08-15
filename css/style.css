@@ -386,6 +386,31 @@ button:focus-visible, a:focus-visible{outline:2px solid var(--accent); outline-o
   .video-controls button{width:42px; height:42px}
 }
 
+.comment-overlay {
+  position: fixed; inset:0; background: rgba(0,0,0,0.6);
+  display:flex; justify-content:center; align-items:center;
+  z-index: 9999;
+}
+.comment-box {
+  background:#000000; color:#ffffff; padding:16px; border-radius:8px;
+  width:90%; max-width:400px; display:flex; flex-direction:column; gap:8px;
+}
+.comment-box h3 { margin:0 0 8px; font-size:18px; text-align:center; }
+.comment-box input, .comment-box textarea {
+  width:100%; padding:8px; border:1px solid #ffffff; border-radius:4px;
+  font-size:14px;
+}
+.comment-box textarea { resize: vertical; min-height:80px; }
+.comment-actions {
+  display:flex; justify-content:space-between; gap:8px;
+}
+.comment-actions button {
+  flex:1; padding:8px; border:none; border-radius:4px;
+  font-size:14px; cursor:pointer;
+}
+.comment-actions button:first-child { background:#ff0000; color: #fff;}
+.comment-actions button:last-child { background:#188100; color:#fff; }
+
 /*--------------------------------------
   Large screens: keep mobile viewport centered,
   black gutters around, and show desktop arrows

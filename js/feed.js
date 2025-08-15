@@ -150,6 +150,7 @@ function loadVideo(idx) {
   const controls = document.createElement('div');
   controls.className = 'video-controls';
 
+
   const saveBtn = document.createElement('button');
   saveBtn.innerHTML = `<span class="material-icons">bookmark_border</span>`;
   saveBtn.title = 'ذخیره ویدیو';
@@ -176,7 +177,11 @@ function loadVideo(idx) {
   };
   controls.appendChild(dlBtn);
 
-  
+  const commentBtn = document.createElement('button');
+  commentBtn.innerHTML = `<span class="material-icons">comment</span>`;
+  commentBtn.title = 'ارسال کامنت';
+  commentBtn.onclick = openCommentPopup;
+  controls.appendChild(commentBtn);
 
   container.appendChild(controls);
 
@@ -200,6 +205,48 @@ function loadVideo(idx) {
   // تزریق CSS حداقلی برای نشانگر صدا (اگر نبود)
   ensureInlineStyles();
 }
+
+
+function openCommentPopup() {
+  const vidId = videos[currentIndex]?.id;
+  const videoLink = `${location.origin}${location.pathname}#v=${vidId}`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'comment-overlay';
+  overlay.innerHTML = `
+    <form class="comment-box" id="commentForm" method="POST" target="_self">
+      <h3>ارسال کامنت</h3>
+      <input type="text" name="entry.323460201" value="${videoLink}" readonly>
+      <input type="text" name="entry.381343939" placeholder="نام شما" required>
+      <input type="text" name="entry.453273452" placeholder="شماره تلفن یا ایمیل" required>
+      <textarea name="entry.1243005185" placeholder="پیام شما" required></textarea>
+      <div class="comment-actions">
+        <button type="button" id="cancelComment">انصراف</button>
+        <button type="submit">ارسال</button>
+      </div>
+    </form>
+  `;
+  document.body.appendChild(overlay);
+
+  document.getElementById('cancelComment').onclick = () => overlay.remove();
+
+  const form = document.getElementById('commentForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    try {
+      await fetch(
+        'https://docs.google.com/forms/d/e/1FAIpQLSfUrQX2DmrfNv--qvMcJgiqkx2yIqz8Dg9jqw3nEr7rkY0juA/formResponse',
+        { method: 'POST', mode: 'no-cors', body: formData }
+      );
+      showToast('پیام ارسال شد!', 'success');
+      overlay.remove();
+    } catch {
+      showToast('ارسال ناموفق بود', 'error');
+    }
+  });
+}
+
 
 /**
  * نشانگر قطع/وصل صدا
