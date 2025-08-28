@@ -96,8 +96,6 @@ function updateOnlineStatus() {
   else banner.classList.remove('hidden');
 }
 
-
-
 /**
  * ناوبری بین ویدیوها (سوایپ بالا/اسکرول بالا = بعدی | پایین = قبلی)
  */
@@ -127,29 +125,22 @@ function loadVideo(idx) {
   videoEl.autoplay = true;
   videoEl.loop = true;
   videoEl.playsInline = true;
-  videoEl.muted = localStorage.getItem("vsd-muted") === true; // شروع بی‌صدا
+  {
+    const savedMuted = localStorage.getItem('vsd-muted');
+    videoEl.muted = savedMuted === null ? true : (savedMuted === 'true'); // شروع بی‌صدا به‌صورت پیش‌فرض
+  }
   videoEl.className = 'video-frame';
-
-  // اجرای اجباری
-  videoEl.addEventListener("click", () => {
-    videoEl.muted = !videoEl.muted;
-  });
-
-  // کلیک/تاچ برای قطع/وصل صدا + نشانگر
-  videoEl.addEventListener('click', toggleMuteWithIndicator);
-  videoEl.addEventListener('touchend', (e) => {
-    // جلوگیری از تداخل با سوایپ: اگر لمس کوتاه بود
-    if (e.changedTouches && e.changedTouches.length === 1) {
-      toggleMuteWithIndicator();
-    }
-  });
-
   container.appendChild(videoEl);
+
+  // اسپینر لودینگ
+  attachVideoSpinner(container, videoEl);
+
+  // کلیک برای قطع/وصل صدا + نشانگر (یک هندلر واحد؛ از دوبل تریگر جلوگیری شود)
+  videoEl.addEventListener('click', toggleMuteWithIndicator);
 
   // کنترل‌ها
   const controls = document.createElement('div');
   controls.className = 'video-controls';
-
 
   const saveBtn = document.createElement('button');
   saveBtn.innerHTML = `<span class="material-icons">bookmark_border</span>`;
@@ -194,7 +185,6 @@ function loadVideo(idx) {
     attachHashtagEvents(cap);
     container.appendChild(cap);
   }
-  
 
   // شمارش بازدید یکتا
   incrementViewCounts(vid.id);
@@ -202,10 +192,12 @@ function loadVideo(idx) {
   // آیکون ذخیره
   updateSaveIcon();
 
-  // تزریق CSS حداقلی برای نشانگر صدا (اگر نبود)
+  // تزریق CSS حداقلی برای اجزای UI (اگر نبود)
   ensureInlineStyles();
-}
 
+  // نوار سفید پیشرفت بین کپشن و نوار پایین (شناور)
+  createProgressBar(videoEl);
+}
 
 function openCommentPopup() {
   const vidId = videos[currentIndex]?.id;
@@ -247,14 +239,15 @@ function openCommentPopup() {
   });
 }
 
-
 /**
  * نشانگر قطع/وصل صدا
  */
-function toggleMuteWithIndicator() {
-  const videoEl = document.querySelector('#video-container video');
+function toggleMuteWithIndicator(e) {
+  const videoEl = e?.currentTarget || document.querySelector('#video-container video');
   if (!videoEl) return;
+
   videoEl.muted = !videoEl.muted;
+  try { localStorage.setItem('vsd-muted', String(videoEl.muted)); } catch {}
 
   const indicator = document.createElement('div');
   indicator.className = 'volume-indicator';
@@ -280,8 +273,6 @@ function attachHashtagEvents(capEl) {
     };
   });
 }
-
-
 
 /**
  * ذخیره/حذف ویدیو
@@ -419,7 +410,138 @@ function showToast(message, type) {
 }
 
 /**
- * استایل‌های حداقلی لازم برای نشانگر صدا و دیالوگ اشتراک‌گذاری
+ * نوار سفید پیشرفت ویدیو (شناور، چپ به راست)
+ */
+function createProgressBar(videoEl) {
+  // حذف نمونه قبلی
+  const prev = document.querySelector('.progress-bar-wrap');
+  if (prev) prev.remove();
+
+  // ساخت عناصر
+  const wrap = document.createElement('div');
+  wrap.className = 'progress-bar-wrap';
+
+  const track = document.createElement('div');
+  track.className = 'progress-track';
+
+  const fill = document.createElement('div');
+  fill.className = 'progress-fill';
+
+  const handle = document.createElement('div');
+  handle.className = 'progress-handle';
+
+  track.appendChild(fill);
+  track.appendChild(handle);
+  wrap.appendChild(track);
+  document.body.appendChild(wrap);
+
+  // موقعیت: بالای نوار پایین
+  const nav = document.querySelector('.bottom-nav');
+  const bottomOffset = nav ? (nav.getBoundingClientRect().height + 12) : 72;
+  wrap.style.bottom = bottomOffset + 'px';
+
+  // همگام‌سازی با پخش
+  const sync = () => {
+    const d = videoEl.duration || 0;
+    const t = videoEl.currentTime || 0;
+    const p = d ? Math.min(1, Math.max(0, t / d)) : 0;
+    const pct = (p * 100) + '%';
+    fill.style.width = pct;     // از چپ به راست
+    handle.style.left = pct;    // هم‌راستا با fill
+  };
+  videoEl.addEventListener('timeupdate', sync);
+  videoEl.addEventListener('loadedmetadata', sync);
+  videoEl.addEventListener('seeking', sync);
+
+  // اسکراب
+  let seeking = false;
+  const seekAt = (clientX) => {
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const p = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    if (Number.isFinite(videoEl.duration) && videoEl.duration > 0) {
+      videoEl.currentTime = p * videoEl.duration;
+    }
+    sync();
+  };
+
+  track.addEventListener('pointerdown', e => {
+    seeking = true;
+    e.preventDefault();
+    e.stopPropagation();
+    if (track.setPointerCapture && e.pointerId != null) track.setPointerCapture(e.pointerId);
+    seekAt(e.clientX);
+  }, { passive: false });
+
+  track.addEventListener('pointermove', e => {
+    if (!seeking) return;
+    e.preventDefault();
+    seekAt(e.clientX);
+  }, { passive: false });
+
+  track.addEventListener('pointerup', e => {
+    if (!seeking) return;
+    seeking = false;
+    e.preventDefault();
+  }, { passive: false });
+
+  // لمس: جلوگیری از سوایپ عمودی هنگام اسکراب
+  track.addEventListener('touchstart', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    if (e.touches && e.touches[0]) seekAt(e.touches[0].clientX);
+    seeking = true;
+  }, { passive: false });
+
+  track.addEventListener('touchmove', (e) => {
+    if (!seeking) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.touches && e.touches[0]) seekAt(e.touches[0].clientX);
+  }, { passive: false });
+
+  track.addEventListener('touchend', (e) => {
+    seeking = false;
+    e.stopPropagation(); e.preventDefault();
+  }, { passive: false });
+
+  // جلوگیری از تریگر ناوبری با چرخ ماوس روی نوار
+  wrap.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+
+  // اولیه
+  sync();
+}
+
+/**
+ * اسپینر لودینگ ویدیو
+ */
+function attachVideoSpinner(container, videoEl) {
+  const spinner = document.createElement('div');
+  spinner.className = 'video-spinner';
+  spinner.innerHTML = `<div class="ring"></div>`;
+  container.appendChild(spinner);
+
+  const show = () => spinner.classList.add('show');
+  const hide = () => spinner.classList.remove('show');
+
+  videoEl.addEventListener('loadstart', show);
+  videoEl.addEventListener('waiting', show);
+  videoEl.addEventListener('stalled', show);
+
+  videoEl.addEventListener('canplay', hide);
+  videoEl.addEventListener('canplaythrough', hide);
+  videoEl.addEventListener('playing', hide);
+
+  videoEl.addEventListener('error', hide);
+  videoEl.addEventListener('ended', hide);
+
+  // چک اولیه
+  setTimeout(() => {
+    if (videoEl.readyState >= 2) hide();
+    else show();
+  }, 0);
+}
+
+/**
+ * استایل‌های حداقلی لازم برای نشانگر صدا، دیالوگ اشتراک‌گذاری، نوار پیشرفت و اسپینر
  */
 function ensureInlineStyles() {
   if (document.getElementById('vsd-inline-styles')) return;
@@ -443,6 +565,62 @@ function ensureInlineStyles() {
     width:100%; padding:12px; border:1px solid #444; border-radius:8px; background:#111; color:#fff; direction:ltr;
   }
   .share-close { position:absolute; top:8px; left:8px; background:transparent; border:0; color:#fff; cursor:pointer; }
+
+  /* نوار سفید پیشرفت (شناور بین کپشن و نوار پایین) */
+  .progress-bar-wrap {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 72px; /* مقدار دقیق با JS تنظیم می‌شود */
+    z-index: 9000;
+    padding: 8px 16px;
+    pointer-events: none; /* فقط خود ترک کلیک‌پذیر باشد */
+  }
+  .progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 999px;
+    position: relative;
+    pointer-events: auto; /* قابل کلیک/لمس */
+    -webkit-tap-highlight-color: transparent;
+    direction: ltr; /* تضمین چپ به راست */
+  }
+  .progress-fill {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    width: 0%;
+    background: #fff;
+    border-radius: inherit;
+    transition: width .06s linear;
+  }
+  .progress-handle {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.2);
+  }
+
+  /* اسپینر لودینگ ویدیو */
+  .video-spinner {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .2s ease;
+    pointer-events: none;
+  }
+  .video-spinner.show { opacity: 1; }
+  .video-spinner .ring {
+    width: 48px; height: 48px;
+    border: 3px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: vsd-spin 1s linear infinite;
+  }
+  @keyframes vsd-spin { to { transform: rotate(360deg); } }
   `;
   const style = document.createElement('style');
   style.id = 'vsd-inline-styles';
