@@ -223,9 +223,11 @@ function attachHoldPause(videoEl) {
       holding = true;
       wasPlaying = !videoEl.paused && !videoEl.ended;
       if (wasPlaying) videoEl.pause();
-      // جلوگیری از کلیک ناخواسته بعد از نگه‌داشتن
       videoEl._suppressClick = true;
-    }, 300); // مدت زمان لازم برای تشخیص نگه‌داشتن
+      // حین نگه داشتن، کنترل‌ها رو مخفی کن
+      const ctrls = document.querySelector('.video-controls');
+      if (ctrls) ctrls.style.display = 'none';
+    }, 300);
   };
 
   const endHold = () => {
@@ -233,18 +235,26 @@ function attachHoldPause(videoEl) {
     if (holding) {
       holding = false;
       if (wasPlaying) videoEl.play().catch(() => {});
-      // جلوگیری از toggle شدن صدا بعد از رها کردن
       setTimeout(() => { videoEl._suppressClick = false; }, 200);
+      // بعد از رها کردن، کنترل‌ها رو دوباره نمایش بده
+      const ctrls = document.querySelector('.video-controls');
+      if (ctrls) ctrls.style.display = '';
     }
   };
 
   videoEl.addEventListener('pointerdown', (e) => {
-    if (e.button != null && e.button !== 0) return; // فقط دکمه اصلی
+    if (e.button != null && e.button !== 0) return;
     startHold();
   });
   videoEl.addEventListener('pointerup', endHold);
   videoEl.addEventListener('pointercancel', endHold);
   videoEl.addEventListener('pointerleave', endHold);
+
+  // جلوگیری از منوی پیش‌فرض یا اکشن سیستم
+  videoEl.addEventListener('contextmenu', e => e.preventDefault());
+  videoEl.addEventListener('touchstart', e => {
+    if (e.touches?.length === 1) e.preventDefault();
+  }, { passive: false });
 }
 
 /**
