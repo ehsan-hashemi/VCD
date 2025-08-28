@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const keywordFromHash = new URLSearchParams(location.search).get("tag");
   let videos = [];
 
+  ensureSpinnerStyles(); // همان استایل اسپینر ویدیو در فید، برای سرچ هم تزریق می‌شود
+
   // ---------------------------
   // کش Thumbnail در localStorage
   // ---------------------------
@@ -26,13 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ---------------------------
-  // گرفتن فریم از 1/3 ویدیو (هماهنگ با settings.js)
+  // گرفتن فریم از 1/3 ویدیو (هماهنگ با فید)
   // ---------------------------
   async function getMiddleFrameThumbnail(videoUrl) {
     return new Promise((resolve) => {
       try {
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
+        video.preload = 'metadata';
         video.src = videoUrl;
         video.muted = true;
         video.playsInline = true;
@@ -44,14 +47,15 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           const middleSec = video.duration / 3;
           const onSeeked = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            let url = null;
-            try { url = canvas.toDataURL('image/jpeg', 0.75); } catch {}
-            resolve(url);
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const url = canvas.toDataURL('image/jpeg', 0.75);
+              resolve(url || null);
+            } catch { resolve(null); }
           };
           video.addEventListener('seeked', onSeeked, { once: true });
           try { video.currentTime = middleSec; } catch { resolve(null); }
@@ -136,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------
-  // رندر کارت‌ها
+  // رندر کارت‌ها + اسپینر «مثل ویدئوها» هنگام ساخت بندانگشتی
   // ---------------------------
   function renderGrid(arr) {
     results.innerHTML = '';
@@ -145,24 +149,47 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = "search-item";
       card.title = vid.caption || "ویدیو";
 
+      // اسپینر همان کلاس فید (video-spinner)
+      const spinner = document.createElement('div');
+      spinner.className = 'video-spinner show';
+      spinner.innerHTML = `<div class="ring"></div>`;
+
+      // تصویر بندانگشتی (جلوگیری از نمایش متن کپشن به‌عنوان fallback)
       const thumb = document.createElement("img");
-      thumb.alt = vid.caption || "";
+      thumb.alt = "";            // جلوگیری از نمایش متن
+      thumb.decoding = "async";
+      thumb.loading = "lazy";
       thumb.style.width = "100%";
       thumb.style.height = "100%";
       thumb.style.objectFit = "cover";
 
+      // یک پیکسل شفاف برای شروع
+      const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+      thumb.src = BLANK;
+
       const videoUrl = vid.file || vid.videoUrl || vid.url || null;
 
+      const finish = () => spinner.classList.remove('show');
+      thumb.addEventListener('load', finish, { once: true });
+      thumb.addEventListener('error', finish, { once: true });
+
       if (videoUrl) {
-        thumb.src = "https://via.placeholder.com/160x285?text=Loading...";
         ensureSearchThumb(videoUrl).then(t => {
-          thumb.src = t || "https://via.placeholder.com/160x285?text=No+Thumb";
+          if (t) {
+            thumb.src = t; // dataURL
+            if (vid.caption) thumb.alt = vid.caption; // فقط برای دسترس‌پذیری
+          } else {
+            // شکست ساخت بندانگشتی: اسپینر خاموش و کارت سیاه می‌ماند
+            spinner.classList.remove('show');
+            // thumb.src = BLANK; // کافی است
+          }
         });
       } else {
-        thumb.src = "https://via.placeholder.com/160x285?text=No+Video";
+        spinner.classList.remove('show');
       }
 
       card.appendChild(thumb);
+      card.appendChild(spinner);
 
       card.addEventListener("click", () => {
         localStorage.setItem("openVideo", JSON.stringify(vid));
@@ -181,4 +208,33 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-add').onclick = () => {
     location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3zvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
   };
+
+  // ---------------------------
+  // استایل‌های اسپینر (هماهنگ با فید)
+  // ---------------------------
+  function ensureSpinnerStyles() {
+    if (document.getElementById('vsd-spinner-inline')) return;
+    const css = `
+      .video-spinner{
+        position:absolute; inset:0;
+        display:flex; align-items:center; justify-content:center;
+        opacity:0; transition:opacity .2s ease;
+        pointer-events:none;
+        background: rgba(0,0,0,0.25);
+      }
+      .video-spinner.show{ opacity:1; }
+      .video-spinner .ring{
+        width:48px; height:48px;
+        border:3px solid rgba(255,255,255,0.35);
+        border-top-color:#fff;
+        border-radius:50%;
+        animation: vsd-spin 1s linear infinite;
+      }
+      @keyframes vsd-spin { to { transform: rotate(360deg); } }
+    `;
+    const style = document.createElement('style');
+    style.id = 'vsd-spinner-inline';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
 });

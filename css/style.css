@@ -30,6 +30,14 @@
   /* Typography */
   --font:'Vazir',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
   --fs-12:12px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px;
+
+  /* Progress bar spacing (used to keep it between caption and bottom nav) */
+  --progress-track-h: 6px;
+  --progress-v-gap: 10px;
+  --progress-clearance: calc(var(--progress-track-h) + var(--progress-v-gap));
+
+  /* Safe bottom area (bottom nav + safe area) */
+  --bottom-area: calc(var(--sp-56) + env(safe-area-inset-bottom, 0px));
 }
 
 @font-face{
@@ -119,6 +127,14 @@ a:hover{text-decoration:underline}
   overflow:hidden;
 }
 
+/* Use dynamic viewport height on modern browsers to avoid URL bar issues */
+@supports (height: 100dvh){
+  #video-container{
+    width:min(100vw, calc(100dvh * 9 / 16));
+    height:min(100dvh, calc(100vw * 16 / 9));
+  }
+}
+
 /* Fullscreen video with black bars when needed */
 #video-container video{
   position:absolute; inset:0;
@@ -130,7 +146,7 @@ a:hover{text-decoration:underline}
 /* Caption — exactly 20px side padding from screen edges */
 #video-container .caption{
   position:absolute;
-  bottom:calc(var(--sp-56) + 14px); /* above bottom-nav comfortably */
+  bottom: calc(var(--bottom-area) + var(--progress-clearance) + 14px); /* ensure space for progress bar */
   inset-inline:20px; /* 20px right & left as requested */
   color:#fff;
   background:linear-gradient(transparent, rgba(0,0,0,.6));
@@ -151,7 +167,7 @@ a:hover{text-decoration:underline}
 .video-controls{
   position:absolute;
   right:16px;
-  bottom:calc(var(--sp-56) + 96px); /* hover line above caption */
+  bottom:calc(var(--bottom-area) + 96px); /* hover line above caption */
   display:flex; flex-direction:column; gap:12px;
   z-index:20;
 }
@@ -191,7 +207,7 @@ a:hover{text-decoration:underline}
 ---------------------------------------*/
 .toast{
   position:fixed;
-  bottom:calc(var(--sp-56) + 16px);
+  bottom:calc(var(--bottom-area) + 16px);
   left:50%; transform:translateX(-50%);
   background:#263238; color:#fff; border-radius:10px;
   padding:10px 14px; font-size:13px; z-index:1100;
@@ -211,7 +227,7 @@ a:hover{text-decoration:underline}
 .search-page{
   min-height:100%;
   background:var(--bg);
-  padding-bottom:var(--sp-56); /* keep space for bottom-nav */
+  padding-bottom:var(--bottom-area); /* keep space for bottom-nav */
 }
 
 /* Search bar wrapper */
@@ -256,7 +272,7 @@ a:hover{text-decoration:underline}
 
 /* Results grid centered to mobile width */
 #search-results{
-  max-width:420px; margin:16px auto; padding:0 8px 80px;
+  max-width:420px; margin:16px auto; padding:0 8px calc(var(--bottom-area) + 24px);
   display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
 }
 
@@ -292,7 +308,7 @@ a:hover{text-decoration:underline}
 .settings-page{
   min-height:100%;
   background:var(--bg);
-  padding:12px 12px calc(var(--sp-56) + 24px);
+  padding:12px 12px calc(var(--bottom-area) + 24px);
 }
 
 .settings-card{
@@ -344,7 +360,7 @@ a:hover{text-decoration:underline}
   color:#dfe3e6; font-size:15px;
 }
 .saved-grid{
-  max-width:420px; margin:0 auto; padding:0 4px 80px;
+  max-width:420px; margin:0 auto; padding:0 4px calc(var(--bottom-area) + 24px);
   display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
 }
 .saved-item{
@@ -358,7 +374,7 @@ a:hover{text-decoration:underline}
 ---------------------------------------*/
 footer{
   text-align:center; color:#b0bec5; font-size:12px;
-  padding:10px 8px calc(var(--sp-56) + 10px);
+  padding:10px 8px calc(var(--bottom-area) + 10px);
 }
 footer a{color:#81d4fa}
 
@@ -445,10 +461,94 @@ button:focus-visible, a:focus-visible{outline:2px solid var(--accent); outline-o
 }
 .radio:checked{border-color:var(--accent); background:radial-gradient(#3ea8ff 50%, transparent 51%)}
 
+/* Legacy minimal bar (kept for compatibility if used elsewhere) */
 .progress-bar {
   position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
   background: rgba(255,255,255,0.3); cursor: pointer;
 }
 .progress-fill {
   height: 100%; background: #fff; width: 0;
+}
+
+/*--------------------------------------
+  Progress bar (fixed, between caption and bottom-nav)
+  These classes match the JS-injected structure:
+  .progress-bar-wrap > .progress-track > (.progress-fill + .progress-handle)
+---------------------------------------*/
+.progress-bar-wrap{
+  position:fixed;
+  left:0; right:0;
+  bottom: calc(var(--bottom-area) + 8px); /* sits just above bottom nav */
+  z-index:940; /* below offline banner(1000)/toast(1100), above content */
+  padding: 0 16px;
+  pointer-events:none;
+}
+.progress-bar-wrap .progress-track{
+  width:100%;
+  height: var(--progress-track-h);
+  background: rgba(255,255,255,0.35);
+  border-radius:999px;
+  position:relative;
+  pointer-events:auto;
+  -webkit-tap-highlight-color:transparent;
+  direction:ltr; /* ensure left-to-right filling even in RTL */
+}
+.progress-bar-wrap .progress-fill{
+  position:absolute;
+  left:0; top:0;
+  height:100%;
+  width:0%;
+  background:#fff;
+  border-radius:inherit;
+  transition: width .06s linear;
+}
+.progress-bar-wrap .progress-handle{
+  position:absolute;
+  top:50%;
+  left:0%;
+  transform:translate(-50%, -50%);
+  width:12px; height:12px;
+  background:#fff;
+  border-radius:50%;
+  box-shadow:0 0 0 2px rgba(0,0,0,0.2);
+}
+
+/*--------------------------------------
+  Responsive hardening
+---------------------------------------*/
+/* Small height devices: tighten spacing, scale UI slightly */
+@media (max-height: 640px){
+  :root{
+    --progress-track-h: 5px;
+    --progress-v-gap: 8px;
+    --progress-clearance: calc(var(--progress-track-h) + var(--progress-v-gap));
+  }
+  .video-controls{bottom: calc(var(--bottom-area) + 72px)}
+  .video-controls button{width:40px; height:40px}
+  .video-controls .material-icons{font-size:24px}
+  #video-container .caption{font-size:14px; max-height:2.8em}
+}
+
+/* Very small height devices: compress even more and shrink bottom-nav */
+@media (max-height: 520px){
+  .bottom-nav{height:48px}
+  .bottom-nav button{width:48px; height:48px}
+  .bottom-nav .material-icons{font-size:24px}
+  .video-controls{bottom: calc(var(--bottom-area) + 56px); gap:8px}
+  #video-container .caption{
+    font-size:13px; line-height:1.5; padding:8px 10px; max-height:2.4em;
+  }
+}
+
+/* Narrow devices: smaller controls and tighter insets */
+@media (max-width: 360px){
+  .video-controls button{width:40px; height:40px}
+  .video-controls .material-icons{font-size:24px}
+  #video-container .caption{inset-inline:14px}
+  #search-results, .saved-grid{grid-template-columns:repeat(2, 1fr)}
+}
+
+/* Ultra-narrow fallback */
+@media (max-width: 300px){
+  #search-results, .saved-grid{grid-template-columns:1fr}
 }
