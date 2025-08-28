@@ -135,7 +135,10 @@ function loadVideo(idx) {
   // اسپینر لودینگ
   attachVideoSpinner(container, videoEl);
 
-  // کلیک برای قطع/وصل صدا + نشانگر (یک هندلر واحد؛ از دوبل تریگر جلوگیری شود)
+  // توقف موقت هنگام نگه‌داشتن (long-press/hold) و ادامه با رها کردن
+  attachHoldPause(videoEl);
+
+  // کلیک برای قطع/وصل صدا + نشانگر
   videoEl.addEventListener('click', toggleMuteWithIndicator);
 
   // کنترل‌ها
@@ -199,6 +202,54 @@ function loadVideo(idx) {
   createProgressBar(videoEl);
 }
 
+/**
+ * توقف هنگام نگه‌داشتن روی ویدیو و ادامه با رها کردن
+ */
+function attachHoldPause(videoEl) {
+  let holdTimer = null;
+  let holding = false;
+  let wasPlaying = false;
+
+  const clearHoldTimer = () => {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  };
+
+  const startHold = () => {
+    clearHoldTimer();
+    holdTimer = setTimeout(() => {
+      holding = true;
+      wasPlaying = !videoEl.paused && !videoEl.ended;
+      if (wasPlaying) videoEl.pause();
+      // جلوگیری از کلیک ناخواسته بعد از نگه‌داشتن
+      videoEl._suppressClick = true;
+    }, 300); // مدت زمان لازم برای تشخیص نگه‌داشتن
+  };
+
+  const endHold = () => {
+    clearHoldTimer();
+    if (holding) {
+      holding = false;
+      if (wasPlaying) videoEl.play().catch(() => {});
+      // جلوگیری از toggle شدن صدا بعد از رها کردن
+      setTimeout(() => { videoEl._suppressClick = false; }, 200);
+    }
+  };
+
+  videoEl.addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button !== 0) return; // فقط دکمه اصلی
+    startHold();
+  });
+  videoEl.addEventListener('pointerup', endHold);
+  videoEl.addEventListener('pointercancel', endHold);
+  videoEl.addEventListener('pointerleave', endHold);
+}
+
+/**
+ * پاپ‌آپ کامنت
+ */
 function openCommentPopup() {
   const vidId = videos[currentIndex]?.id;
   const videoLink = `${location.origin}${location.pathname}#v=${vidId}`;
@@ -245,6 +296,12 @@ function openCommentPopup() {
 function toggleMuteWithIndicator(e) {
   const videoEl = e?.currentTarget || document.querySelector('#video-container video');
   if (!videoEl) return;
+
+  // اگر刚 بعد از نگه‌داشتن رها شده، کلیک را نادیده بگیر
+  if (videoEl._suppressClick) {
+    videoEl._suppressClick = false;
+    return;
+  }
 
   videoEl.muted = !videoEl.muted;
   try { localStorage.setItem('vsd-muted', String(videoEl.muted)); } catch {}
@@ -362,7 +419,7 @@ function shareVideo(url) {
   const doCopy = () => {
     if (navigator.clipboard && window.isSecureContext) {
       return navigator.clipboard.writeText(url)
-        .then(() => showToast('لینک کپی شد!', 'success'))
+        .then(() => showToast('לینک کپی شد!', 'success'))
         .catch(() => fallbackShareDialog(url));
     } else {
       fallbackShareDialog(url);
@@ -700,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-home').onclick = () => location.href = 'index.html';
   document.getElementById('nav-search').onclick = () => location.href = 'search.html';
   document.getElementById('nav-add').onclick = () => {
-    location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3zvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
+    location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3زvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
   };
   document.getElementById('nav-settings').onclick = () => location.href = 'settings.html';
 });
