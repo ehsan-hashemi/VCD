@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>خروجی بندانگشتی از بازهٔ ویدئوها (۱/۳ مدت)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; max-width: 900px; margin: auto; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+    .col-3 { grid-column: span 3; }
+    .col-12 { grid-column: span 12; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+    input[type="text"], input[type="number"] { padding: 10px; border: 1px solid #bbb; border-radius: 8px; direction: ltr; }
+    input[type="number"] { direction: rtl; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; cursor: pointer; background: #1e88e5; color: #fff; }
+    button.secondary { background: #666; }
+    button.danger { background: #d32f2f; }
+    .hint { font-size: 12px; color: #666; margin-top: -6px; }
+    progress { width: 100%; height: 10px; }
+    .log { margin-top: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #333; max-height: 40vh; overflow: auto; padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+    .muted { color: #777; }
+  </style>
+</head>
+<body>
+  <h1>ساخت بندانگشتی از ۱/۳ مدت ویدئو (بازهٔ ID)</h1>
+
+  <div class="grid">
+    <label class="col-12">
+      الگوی URL ویدئو (از {id} برای جای‌گذاری استفاده کن)
+      <input id="pattern" type="text" value="/videos/videoid{id}.mp4" placeholder="/videos/videoid{id}.mp4">
+      <div class="hint">مثال: /videos/videoid{id}.mp4 → برای id=100 می‌شود /videos/videoid100.mp4</div>
+    </label>
+
+    <label class="col-4">
+      از ID
+      <input id="fromId" type="number" inputmode="numeric" value="1" min="0">
+    </label>
+    <label class="col-4">
+      تا ID
+      <input id="toId" type="number" inputmode="numeric" value="10" min="0">
+    </label>
+    <label class="col-4">
+      گام
+      <input id="step" type="number" inputmode="numeric" value="1" min="1">
+    </label>
+
+    <label class="col-4">
+      نسبت زمان فریم (۰ تا ۱)
+      <input id="ratio" type="text" value="0.33">
+      <div class="hint">۰٫۳۳ یعنی ۳۳٪ ابتدای ویدئو</div>
+    </label>
+    <label class="col-4">
+      حداکثر عرض خروجی
+      <input id="maxW" type="number" inputmode="numeric" value="1280" min="64">
+    </label>
+    <label class="col-4">
+      کیفیت JPG (۰ تا ۱)
+      <input id="quality" type="text" value="0.9">
+    </label>
+
+    <div class="col-12 actions">
+      <button id="pickDir">انتخاب پوشهٔ خروجی</button>
+      <button id="start">شروع</button>
+      <button id="stop" class="danger">توقف</button>
+      <button id="clearLog" class="secondary">پاک‌سازی گزارش</button>
+    </div>
+
+    <div class="col-12">
+      <progress id="prog" value="0" max="100"></progress>
+      <div id="status" class="muted">آماده</div>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+
+  <video id="v" crossorigin="anonymous" preload="auto" style="display:none"></video>
+  <canvas id="c" style="display:none"></canvas>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const log = m => ($('log').textContent += m + '\n');
+    const setStatus = t => $('status').textContent = t;
+
+    let dirHandle = null;
+    let abort = false;
+
+    $('pickDir').onclick = async () => {
+      if (!('showDirectoryPicker' in window)) {
+        alert('مرورگر شما ذخیرهٔ مستقیم در پوشه را پشتیبانی نمی‌کند. از Chrome/Edge جدید استفاده کن یا روی «شروع» بزن تا فایل‌ها دانلود شوند.');
+        return;
+      }
+      dirHandle = await window.showDirectoryPicker();
+      setStatus('پوشهٔ خروجی انتخاب شد.');
+      log('✓ پوشه انتخاب شد.');
+    };
+
+    $('clearLog').onclick = () => $('log').textContent = '';
+
+    $('stop').onclick = () => {
+      abort = true;
+      setStatus('درحال توقف ...');
+      log('⛔ دستور توقف صادر شد.');
+    };
+
+    $('start').onclick = async () => {
+      try {
+        abort = false;
+        $('prog').value = 0;
+        $('log').textContent = '';
+
+        const pattern = $('pattern').value.trim();
+        if (!pattern.includes('{id}')) {
+          alert('الگوی URL باید شامل {id} باشد.');
+          return;
+        }
+
+        const fromId = parseInt($('fromId').value, 10);
+        const toId   = parseInt($('toId').value, 10);
+        const step   = Math.max(1, parseInt($('step').value, 10) || 1);
+        const ratio  = Math.min(1, Math.max(0, parseFloat($('ratio').value)));
+        const maxW   = Math.max(64, parseInt($('maxW').value, 10) || 1280);
+        const quality= Math.min(1, Math.max(0, parseFloat($('quality').value)));
+
+        if (Number.isNaN(fromId) || Number.isNaN(toId) || fromId > toId) {
+          alert('بازهٔ ID نامعتبر است.');
+          return;
+        }
+
+        const ids = [];
+        for (let i = fromId; i <= toId; i += step) ids.push(i);
+
+        setStatus('در حال پردازش...');
+        log(`شروع: ${ids.length} مورد. نسبت=${ratio}، maxW=${maxW}، کیفیت=${quality}`);
+        if (!dirHandle && !('showDirectoryPicker' in window)) {
+          log('مرورگر ذخیرهٔ مستقیم را پشتیبانی نمی‌کند؛ خروجی‌ها دانلود خواهند شد.');
+        } else if (!dirHandle) {
+          log('هشدار: پوشهٔ خروجی انتخاب نشده؛ هنگام ذخیره، دانلود تکی انجام می‌شود.');
+        }
+
+        let done = 0, ok = 0, fail = 0;
+        for (const id of ids) {
+          if (abort) break;
+          const url = pattern.replace('{id}', id);
+          try {
+            await processOne(id, url, ratio, maxW, quality);
+            ok++;
+            log(`✓ ذخیره شد: ${id}.jpg`);
+          } catch (e) {
+            fail++;
+            log(`✗ خطا برای id=${id}: ${e.message || e}`);
+          } finally {
+            done++;
+            $('prog').value = Math.round((done / ids.length) * 100);
+            setStatus(`پیشرفت: ${done}/${ids.length} — موفق: ${ok} — خطا: ${fail}`);
+            // وقفه کوتاه برای پاسخ‌گویی UI
+            await new Promise(r => setTimeout(r, 40));
+          }
+        }
+
+        if (abort) {
+          setStatus(`متوقف شد. انجام‌شده: ${done}/${ids.length}، موفق: ${ok}، خطا: ${fail}`);
+          log('⛔ عملیات متوقف شد.');
+        } else {
+          setStatus(`تمام شد. موفق: ${ok}، خطا: ${fail}`);
+          log('🎉 پایان پردازش.');
+        }
+      } catch (e) {
+        setStatus('خطا');
+        log('خطای کلی: ' + (e.message || e));
+      }
+    };
+
+    async function processOne(id, url, ratio, maxW, quality) {
+      const video = $('v');
+
+      // بارگذاری متادیتا
+      await new Promise((resolve, reject) => {
+        const onMeta = () => { cleanup(); resolve(); };
+        const onErr  = () => { cleanup(); reject(new Error('بارگذاری ویدئو ناموفق (URL/CORS)')); };
+        const cleanup = () => {
+          video.removeEventListener('loadedmetadata', onMeta);
+          video.removeEventListener('error', onErr);
+        };
+        video.addEventListener('loadedmetadata', onMeta, { once: true });
+        video.addEventListener('error', onErr, { once: true });
+        video.crossOrigin = 'anonymous';
+        video.preload = 'auto';
+        video.src = url;
+        video.load();
+      });
+
+      // محاسبه زمان هدف و seek
+      const dur = Number.isFinite($('v').duration) ? $('v').duration : 0;
+      const t = clamp(dur * ratio, 0, Math.max(0, dur - 0.2));
+      await new Promise((resolve, reject) => {
+        const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
+        const onErr = () => { video.removeEventListener('error', onErr); reject(new Error('seek ناموفق')); };
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.addEventListener('error', onErr, { once: true });
+        video.currentTime = isFinite(t) ? t : 0;
+      });
+
+      // رسم روی canvas
+      const blob = await drawToBlob(video, maxW, quality);
+      if (!blob) throw new Error('تولید تصویر ناموفق بود');
+
+      // ذخیره: ترجیح با پوشهٔ انتخابی؛ در غیر اینصورت دانلود
+      if (dirHandle && 'createWritable' in FileSystemFileHandle.prototype) {
+        const fileHandle = await dirHandle.getFileHandle(`${id}.jpg`, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        downloadBlob(blob, `${id}.jpg`);
+      }
+    }
+
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+    async function drawToBlob(video, maxW, quality) {
+      const canvas = $('c');
+      const w = video.videoWidth, h = video.videoHeight;
+      if (!w || !h) throw new Error('ابعاد ویدئو نامعتبر است');
+
+      const scale = Math.min(1, maxW / w);
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', quality));
+    }
+
+    function downloadBlob(blob, name) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
+    }
+  </script>
+</body>
+</html>

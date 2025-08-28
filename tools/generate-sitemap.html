@@ -1,0 +1,89 @@
+<!-- tools/generate-sitemap.html -->
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>تولید Sitemap ویدئوهای VCD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; cursor: pointer; background: #1e88e5; color: #fff; }
+    .log { margin-top: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #333; }
+  </style>
+</head>
+<body>
+  <h1>سایت‌مپ ویدئو (Video Sitemap)</h1>
+  <button id="generate">تولید و دانلود sitemap.xml</button>
+  <div id="log" class="log"></div>
+
+  <script>
+    const SITE = location.origin;
+    const JSON_PATH = '../data/videos.json';
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const clean = t => (t||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
+    const summarize = (t,n) => { const s=clean(t); if(s.length<=n) return s; const cut=s.slice(0,n); const last=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('، '),cut.lastIndexOf(' ')); return (last>24?cut.slice(0,last):cut)+'…'; };
+
+    const videoEntry = (v) => {
+      const id = v.id;
+      const caption = v.caption || '';
+      const title = summarize(caption, 70) || 'ویدئوی کوتاه VCD';
+      const description = summarize(caption, 180) || 'ویدئوی کوتاه در VCD';
+      const player = `${SITE}/index.html#v=${encodeURIComponent(id)}`; // سازگار با feed.js فعلی
+      const content = v.file.startsWith('http') ? v.file : `${SITE}/${v.file.replace(/^\/+/,'')}`;
+      const thumb = `${SITE}/thumbs/${encodeURIComponent(id)}.jpg`;
+
+      return `
+  <url>
+    <loc>${SITE}/</loc>
+    <video:video>
+      <video:thumbnail_loc>${thumb}</video:thumbnail_loc>
+      <video:title>${esc(title)}</video:title>
+      <video:description>${esc(description)}</video:description>
+      <video:content_loc>${content}</video:content_loc>
+      <video:player_loc allow_embed="yes">${player}</video:player_loc>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:live>no</video:live>
+    </video:video>
+  </url>`;
+    };
+
+    async function generate() {
+      const log = (m)=>document.getElementById('log').textContent += m+'\n';
+      try {
+        log('در حال خواندن videos.json ...');
+        const res = await fetch(JSON_PATH, { cache: 'no-store' });
+        if (!res.ok) throw new Error('خواندن videos.json ناموفق بود');
+        const list = await res.json();
+
+        const entries = [
+`  <url>
+    <loc>${SITE}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>`
+        ];
+        list.forEach(v => { if (v && v.id!=null && v.file) entries.push(videoEntry(v)); });
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+${entries.join('\n')}
+</urlset>`;
+
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'sitemap.xml';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        log('sitemap.xml ساخته شد. آن را در ریشهٔ ریپو قرار دهید و در Search Console ثبت/به‌روزرسانی کنید.');
+      } catch (e) {
+        document.getElementById('log').textContent = 'خطا: ' + e.message;
+      }
+    }
+
+    document.getElementById('generate').onclick = generate;
+  </script>
+</body>
+</html>
