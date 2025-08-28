@@ -130,6 +130,12 @@ function loadVideo(idx) {
     videoEl.muted = savedMuted === null ? true : (savedMuted === 'true'); // شروع بی‌صدا به‌صورت پیش‌فرض
   }
   videoEl.className = 'video-frame';
+  videoEl.setAttribute('playsinline', '');
+  videoEl.setAttribute('webkit-playsinline', '');
+  videoEl.setAttribute('draggable', 'false');
+  // جلوگیری از منو/دانلود پیش‌فرض
+  videoEl.addEventListener('contextmenu', e => e.preventDefault());
+
   container.appendChild(videoEl);
 
   // اسپینر لودینگ
@@ -204,6 +210,7 @@ function loadVideo(idx) {
 
 /**
  * توقف هنگام نگه‌داشتن روی ویدیو و ادامه با رها کردن
+ * + حین نگه‌داشتن، کنترل‌ها مخفی می‌شوند و منوهای سیستم مسدود می‌شوند.
  */
 function attachHoldPause(videoEl) {
   let holdTimer = null;
@@ -223,11 +230,11 @@ function attachHoldPause(videoEl) {
       holding = true;
       wasPlaying = !videoEl.paused && !videoEl.ended;
       if (wasPlaying) videoEl.pause();
-      videoEl._suppressClick = true;
+      videoEl._suppressClick = true; // جلوگیری از toggle صدا بعد از رها کردن
       // حین نگه داشتن، کنترل‌ها رو مخفی کن
       const ctrls = document.querySelector('.video-controls');
       if (ctrls) ctrls.style.display = 'none';
-    }, 300);
+    }, 300); // مدت زمان لازم برای تشخیص نگه‌داشتن
   };
 
   const endHold = () => {
@@ -243,18 +250,18 @@ function attachHoldPause(videoEl) {
   };
 
   videoEl.addEventListener('pointerdown', (e) => {
-    if (e.button != null && e.button !== 0) return;
+    if (e.button != null && e.button !== 0) return; // فقط دکمه اصلی
     startHold();
   });
   videoEl.addEventListener('pointerup', endHold);
   videoEl.addEventListener('pointercancel', endHold);
   videoEl.addEventListener('pointerleave', endHold);
 
-  // جلوگیری از منوی پیش‌فرض یا اکشن سیستم
-  videoEl.addEventListener('contextmenu', e => e.preventDefault());
-  videoEl.addEventListener('touchstart', e => {
+  // جلوگیری از منوی پیش‌فرض یا اکشن سیستم هنگام long-press موبایل
+  videoEl.addEventListener('touchstart', (e) => {
     if (e.touches?.length === 1) e.preventDefault();
   }, { passive: false });
+  videoEl.addEventListener('contextmenu', e => e.preventDefault());
 }
 
 /**
@@ -289,7 +296,7 @@ function openCommentPopup() {
     const formData = new FormData(form);
     try {
       await fetch(
-        'https://docs.google.com/forms/d/e/1FAIpQLSfUrQX2DmrfNv--qvMcJgiqkx2yIqz8Dg9jqw3nEr7rkY0juA/formResponse',
+        'https://docs.google.com/forms/d/e/1FAIpQLSfUrQX2DmrfNv--qvMcJgiqkx2yIqz8Dg9jqw3نEr7rkY0juA/formResponse',
         { method: 'POST', mode: 'no-cors', body: formData }
       );
       showToast('پیام ارسال شد!', 'success');
@@ -307,7 +314,7 @@ function toggleMuteWithIndicator(e) {
   const videoEl = e?.currentTarget || document.querySelector('#video-container video');
   if (!videoEl) return;
 
-  // اگر刚 بعد از نگه‌داشتن رها شده، کلیک را نادیده بگیر
+  // اگر بلافاصله بعد از نگه‌داشتن رها شده، کلیک را نادیده بگیر
   if (videoEl._suppressClick) {
     videoEl._suppressClick = false;
     return;
@@ -429,7 +436,7 @@ function shareVideo(url) {
   const doCopy = () => {
     if (navigator.clipboard && window.isSecureContext) {
       return navigator.clipboard.writeText(url)
-        .then(() => showToast('לینک کپی شد!', 'success'))
+        .then(() => showToast('لینک کپی شد!', 'success'))
         .catch(() => fallbackShareDialog(url));
     } else {
       fallbackShareDialog(url);
@@ -688,6 +695,11 @@ function ensureInlineStyles() {
     animation: vsd-spin 1s linear infinite;
   }
   @keyframes vsd-spin { to { transform: rotate(360deg); } }
+
+  /* جلوگیری از منوی نگه‌داشتن و انتخاب متن روی ویدئو */
+  .video-frame {
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
   `;
   const style = document.createElement('style');
   style.id = 'vsd-inline-styles';
@@ -767,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-home').onclick = () => location.href = 'index.html';
   document.getElementById('nav-search').onclick = () => location.href = 'search.html';
   document.getElementById('nav-add').onclick = () => {
-    location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3زvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
+    location.href = 'https://docs.google.com/forms/d/e/1FAIpQLSd3zvLky2JWoa7Z5XmTS7gh2iUVnSgYYU_Hk14_01RuDsRMnw/viewform?usp=header';
   };
   document.getElementById('nav-settings').onclick = () => location.href = 'settings.html';
 });
